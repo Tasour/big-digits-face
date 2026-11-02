@@ -5,6 +5,10 @@ quatre grands chiffres 7 segments dessinés sans police, avec les secondes en
 bas au centre, la date en trait fin blanc (jour en 7 segments), les calories verticales à
 gauche et les pas verticaux à droite.
 
+![Big Digits — Forerunner 955 Solar](preview-B5-sim.png)
+
+*Simulation : vendredi 13 novembre, 20 000 pas, 1 000 kcal, 12H.*
+
 - Bloc de 4 cellules 90×90 (gouttière 4 px, 184 px au total), trait 18 px.
 - `1` = barre verticale de 18 px centrée, comme le `1` des secondes.
 - Date (lettres) en police trait 10×12 ; data en 7 segments ; jour en 7 segments ; secondes en bas.
