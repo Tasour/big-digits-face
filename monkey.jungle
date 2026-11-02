@@ -1,0 +1,7 @@
+project.manifest = manifest.xml
+
+# Sources Monkey C
+base.sourcePath = source
+
+# Ressources (strings / layouts)
+base.resourcePath = resources

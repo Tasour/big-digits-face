@@ -1,0 +1,10 @@
+# Clés de signature Connect IQ — ne jamais versionner
+*.der
+*.pem
+*.bak
+
+# Artefacts de build
+bin/
+
+# Divers
+.DS_Store

@@ -1,0 +1,20 @@
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <!-- Prototype cadran "gros chiffres" style photo, adapté Forerunner 955 Solar 260x260 -->
+    <iq:application
+        id="e9cdc5a8-1c19-4eda-926a-f839a77951a3"
+        type="watchface"
+        name="@Strings.AppName"
+        launcherIcon="@Drawables.LauncherIcon"
+        entry="BigDigitsApp"
+        minSdkVersion="5.2.0">
+        <iq:products>
+            <!-- Cible principale : Forerunner 955 / 955 Solar (260x260 rond, MIP) -->
+            <iq:product id="fr955"/>
+        </iq:products>
+        <iq:permissions />
+        <iq:languages>
+            <iq:language>fre</iq:language>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+    </iq:application>
+</iq:manifest>
