@@ -27,6 +27,58 @@ affichage numérique à gros chiffres 7 segments.
 - Quatre arcs segmentés à `r=126`.
 - Mise à jour chaque minute + `onPartialUpdate` pour les secondes.
 
+## Big Digits Chrono
+
+Application chronomètre assortie au cadran, dans le même langage 7 segments.
+Elle s'installe à côté du cadran et se lance depuis la liste des applications.
+
+![Chrono — aperçu des états](chrono-preview.png)
+
+| READY | En course | Après 1 h |
+| --- | --- | --- |
+| ![READY](chrono-ready.png) | ![Course](chrono-running.png) | ![Heures](chrono-hours.png) |
+
+### Principe
+
+- **H M S** sur une ligne, **centièmes** au centre en bas.
+- Avant 1 h : `M S CM` sur la ligne, `CM` prend la place libre à droite.
+- Après 1 h : `H M S` sur la ligne, `CM` en bas.
+- Le groupe du milieu reste **centré** et **1,6× plus grand** que les côtés
+  (proportions du nombre d'or).
+- Zéros de tête masqués ; centièmes toujours sur 2 chiffres.
+- `Are you READY ?` avant le départ (seul `READY` est gras), `GO!` pendant 3 s,
+  puis plus aucun texte.
+- Aucune fioriture : pas d'arc, pas de flèche, pas de statut.
+
+### Commandes
+
+| Bouton | Action |
+| --- | --- |
+| Haut droite — START/STOP | Lancer / pause |
+| Bas droite — BACK | Remise à zéro |
+| Haut gauche — LIGHT | Lap (affiche le tour 2 s) |
+| Bas gauche — DOWN | Retour au cadran |
+| Milieu gauche — UP | Inutilisé |
+
+### Compilation et installation
+
+```bash
+cd chrono
+./build.sh
+# -> chrono/bin/bigdigits-chrono-fr955.prg
+```
+
+Copier `chrono/bin/bigdigits-chrono-fr955.prg` dans `GARMIN/Apps/`, puis
+débrancher/rebrancher la montre. L'application apparaît sous **Big Digits
+Chrono**.
+
+### Technique
+
+- Temps calculé depuis `System.getTimer()` (pas d'accumulation d'erreurs).
+- Timer de 20 ms pour les centièmes, arrêté en pause pour préserver la batterie.
+- Lap : flash du temps du tour pendant 2 s.
+- Même moteur 7 segments que le cadran (primitives graphiques, aucune police).
+
 ## Compilation
 
 Prérequis :
@@ -58,14 +110,27 @@ ne sont **pas versionnés** (voir `.gitignore`). Placez votre propre
 ## Structure
 
 ```text
-source/              Sources Monkey C
+source/              Sources Monkey C du cadran
   BigDigitsApp.mc
   BigDigitsView.mc
 resources/            Icône et chaînes
-manifest.xml          Manifest Connect IQ
+manifest.xml          Manifest Connect IQ du cadran
 monkey.jungle         Configuration de build
-build.sh              Script de compilation
+build.sh              Script de compilation du cadran
 result-watch.png      Aperçu du cadran
+chrono/               Application chronomètre
+  source/
+    ChronoApp.mc
+    ChronoDelegate.mc
+    ChronoView.mc
+  resources/          Icône et chaînes
+  manifest.xml        Manifest Connect IQ du chrono
+  monkey.jungle       Configuration de build
+  build.sh            Script de compilation du chrono
+chrono-preview.png    Aperçu des états du chrono
+chrono-ready.png      Chrono — READY
+chrono-running.png    Chrono — en course
+chrono-hours.png      Chrono — après 1 h
 ```
 
 ## Compatibilité

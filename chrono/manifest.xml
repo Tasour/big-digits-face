@@ -1,0 +1,18 @@
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <iq:application
+        id="8f2c1d4a-6b3e-4c7d-9e21-5a6b7c8d9e0f"
+        type="watch-app"
+        name="@Strings.AppName"
+        launcherIcon="@Drawables.LauncherIcon"
+        entry="ChronoApp"
+        minSdkVersion="5.2.0">
+        <iq:products>
+            <iq:product id="fr955"/>
+        </iq:products>
+        <iq:permissions />
+        <iq:languages>
+            <iq:language>fre</iq:language>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+    </iq:application>
+</iq:manifest>
