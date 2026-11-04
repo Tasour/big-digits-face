@@ -5,6 +5,7 @@ using Toybox.Math;
 using Toybox.System;
 using Toybox.Time;
 using Toybox.Time.Gregorian;
+using Toybox.UserProfile;
 using Toybox.WatchUi;
 
 // Big Digits — direction B5 « data latérale + secondes en bas ».
@@ -102,8 +103,14 @@ class BigDigitsView extends WatchUi.WatchFace {
         var kcal = 0;
         var activity = ActivityMonitor.getInfo();
         if (activity != null) {
-            steps = activity.steps;
-            kcal = activity.calories;
+            var activitySteps = activity.steps;
+            if (activitySteps != null) {
+                steps = activitySteps as Lang.Number;
+            }
+            var activityCalories = activity.calories;
+            if (activityCalories != null) {
+                kcal = activityCalories as Lang.Number;
+            }
         }
 
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
@@ -118,6 +125,32 @@ class BigDigitsView extends WatchUi.WatchFace {
         var dowStr = dows[dowIdx];
         var dayStr = info.day.format("%d");
         var monStr = months[monIdx];
+
+        // Connect IQ ne fournit que les calories totales (BMR + actif).
+        // On estime les calories de repos depuis le profil et on les soustrait.
+        var profile = UserProfile.getProfile();
+        if (profile != null) {
+            var birthYear = profile.birthYear;
+            var height = profile.height;
+            var weight = profile.weight;
+            var gender = profile.gender;
+            if (birthYear != null && height != null && weight != null && gender != null) {
+                var age = info.year - (birthYear as Lang.Number);
+                var h = height as Lang.Number;
+                var w = (weight as Lang.Number) / 1000.0;
+                var rest = 0.0;
+                if (gender == UserProfile.GENDER_MALE) {
+                    rest = 5.2 - 6.116 * age + 7.628 * h + 12.2 * w;
+                } else {
+                    rest = -197.6 - 6.116 * age + 7.628 * h + 12.2 * w;
+                }
+                rest = Math.round((info.hour * 60 + info.min) * rest / 1440).toNumber();
+                kcal = kcal - rest;
+                if (kcal < 0) {
+                    kcal = 0;
+                }
+            }
+        }
 
         drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr, kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
     }

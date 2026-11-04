@@ -17,6 +17,9 @@ affichage numérique à gros chiffres 7 segments.
   trait **10 × 12** (1 px), en blanc.
 - Calories actives à gauche et pas à droite, en colonnes verticales de chiffres
   **7 segments 10 × 14**, en blanc, avec petits repères `C` et `P` en gris.
+  Les calories actives sont estimées : Connect IQ ne fournit que le total
+  journalier, le cadran soustrait les calories de repos calculées depuis le
+  profil utilisateur.
 - Autonomie restante à droite des secondes : nombre **7 × 11**, trait 1 px, gris,
   unité `J`/`H` en petit, en haut à droite.
 - Point de connexion téléphone à gauche des secondes (visible uniquement si la
@@ -79,3 +82,9 @@ result-watch.png      Aperçu du cadran
   `manifest.xml`.
 - Le cadran ne dépend d'aucune ressource de police externe : les chiffres,
   les lettres de la date et les unités sont dessinés en primitives graphiques.
+- `ActivityMonitor.Info.calories` donne les calories totales de la journée, pas
+  les calories actives. Le cadran estime les calories de repos à partir de
+  l'âge, la taille, le poids et le sexe du profil (`UserProfile`), puis les
+  soustrait du total. Le résultat peut différer de quelques kcal de Garmin
+  Connect.
+- L'application déclare la permission `UserProfile` dans `manifest.xml`.

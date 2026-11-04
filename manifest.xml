@@ -11,7 +11,9 @@
             <!-- Cible principale : Forerunner 955 / 955 Solar (260x260 rond, MIP) -->
             <iq:product id="fr955"/>
         </iq:products>
-        <iq:permissions />
+        <iq:permissions>
+            <iq:uses-permission id="UserProfile"/>
+        </iq:permissions>
         <iq:languages>
             <iq:language>fre</iq:language>
             <iq:language>eng</iq:language>
