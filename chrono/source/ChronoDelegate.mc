@@ -15,7 +15,7 @@ class ChronoDelegate extends WatchUi.InputDelegate {
         if (key == WatchUi.KEY_ENTER || key == WatchUi.KEY_START) {
             _view.toggle();
             return true;
-        } else if (key == WatchUi.KEY_LIGHT || key == WatchUi.KEY_LAP) {
+        } else if (key == WatchUi.KEY_MENU || key == WatchUi.KEY_LIGHT || key == WatchUi.KEY_LAP) {
             _view.lap();
             return true;
         } else if (key == WatchUi.KEY_DOWN) {
