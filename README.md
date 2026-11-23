@@ -112,6 +112,21 @@ Limites : textes figés à la compilation (pas de mise à jour dynamique), pas d
 `pushView` depuis une watch face, pas de personnalisation des heures sans
 recompiler.
 
+### Preuve visuelle (simulateur)
+
+Capture `docs/popup-simulator-proof.png` : le rectangle « SOLEIL / VA VOIR LE
+COUCHE DE SOLEIL / 10-15 MIN FACE A L O... » s'affiche bien sur le device
+`fr955`. La capture a été obtenue avec un cadran de test temporaire forçant le
+créneau 17:30 (le champ « Time Simulation » ne permet pas d'entrer 17:30 de
+façon fiable). Le binaire livré (`bin/bigdigits-fr955.prg`) est compilé depuis le
+code non modifié : le test n'a servi qu'à visualiser le rendu du popup.
+
+Pour lancer le simulateur sur Arch : le binaire 9.3.0 demande les SONAME legacy
+`libwebkit2gtk-4.0.so.37`, `libjavascriptcoregtk-4.0.so.18`, `libsoup-2.4.so.1`
+(absents d'Arch qui fournit 4.1/3.0). Un répertoire de compatibilité avec des
+symlinks isolés via `LD_LIBRARY_PATH` suffit. Charger l'app avec
+`monkeydo <prg> fr955` (l'argument .prg de `simulator` seul ne la charge pas).
+
 ## Compilation
 
 Prérequis :
