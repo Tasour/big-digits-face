@@ -79,6 +79,39 @@ Chrono**.
 - Lap : flash du temps du tour pendant 2 s.
 - Même moteur 7 segments que le cadran (primitives graphiques, aucune police).
 
+## Rappels Protocoles (branche `protocol-popups`)
+
+Onze rappels sont dessinés **directement dans le cadran** sous forme d'un
+rectangle blanc avec titre, message et un buzz unique. Le contenu est généré
+depuis la base de connaissances RAG (EPUB *Protocols* de Huberman) et intégré
+aux ressources `resources/strings/strings.xml` : les watch faces ne peuvent pas
+recevoir de texte par `Communications`, et `WatchUi.pushView` est interdit
+(`OperationNotAllowedException`). Les données Garmin ne servent que de
+déclencheur (nombre de pas à 18 h 30).
+
+| Heure | Rappel |
+|---|---|
+| 07:00 | 10-30 MIN DE LUMIERE AU REVEIL |
+| 08:00 | Protocole du jour (cyclique lun→dim, 7 variantes) |
+| 12:30 | MARCHE 5-10 MIN APRES LE REPAS |
+| 15:00 | PLUS DE CAFEINE NI D ALCOOL CE SOIR |
+| 17:30 | VA VOIR LE COUCHE DE SOLEIL / 10-15 MIN FACE A L OUEST |
+| 18:30 | PAS ASSEZ DE PAS — MARCHE 5 MIN (si pas < 7 000), sinon OBJECTIF PAS ATTEINT |
+| 20:30 | 4 MOUVEMENTS 2-4 FOIS PAR SEMAINE |
+| 21:00 | NSDR 20 MIN SI SOMMEIL INSUFFISANT |
+| 21:30 | 18-20 C — EXTREMITES CHAUDES |
+| 22:00 | ECRANS OFF 1 H AVANT LE COUCHER |
+| 22:30 | 1-3 SOUPIRS PHYSIOLOGIQUES |
+
+Chaque message reste affiché deux minutes. La vibration est protégée par
+`Attention has :vibrate` et respecte `DeviceSettings.vibrateOn` ; sur
+Forerunner le motif de vibration n'est pas supporté : un seul buzz, cycle fixe.
+Les passages sources sont archivés dans `docs/rag-messages.md`.
+
+Limites : textes figés à la compilation (pas de mise à jour dynamique), pas de
+`pushView` depuis une watch face, pas de personnalisation des heures sans
+recompiler.
+
 ## Compilation
 
 Prérequis :

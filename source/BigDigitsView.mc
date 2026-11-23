@@ -1,4 +1,6 @@
 using Toybox.ActivityMonitor;
+using Toybox.Application;
+using Toybox.Attention;
 using Toybox.Graphics;
 using Toybox.Lang;
 using Toybox.Math;
@@ -55,6 +57,17 @@ class BigDigitsView extends WatchUi.WatchFace {
     const C_DATE = 0xFFFFFF;
     const C_DATA = 0x909090;
     const C_ARC = 0x777777;
+
+    // Rappels Protocoles : rectangle dessine dans le cadran.
+    // Une watch face ne peut pas appeler WatchUi.pushView (OperationNotAllowedException),
+    // donc le message est dessine directement au-dessus du cadran.
+    const POP_X = 14;
+    const POP_Y = 66;
+    const POP_W = 232;
+    const POP_H = 96;
+    const POP_WINDOW = 2; // minutes
+
+    private var lastVibKey as Lang.Number = -1;
 
     function initialize() {
         WatchFace.initialize();
@@ -153,6 +166,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
 
         drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr, kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
+        showProtocolPopup(dc, hour, minute, dowIdx, steps, settings);
     }
 
     // Les secondes sont le seul élément qui change chaque seconde.
@@ -161,6 +175,143 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillRectangle(SEC_X - 2, SEC_Y - 2, SEC_W * 2 + SEC_GAP + 4, SEC_H + 4);
         drawSeconds(dc, clock.sec);
+    }
+
+    // --- Rappels Protocoles -----------------------------------------------
+    // Contenu genere depuis le RAG Synthetix / EPUB Huberman, integre aux
+    // ressources du cadran (les watch faces ne peuvent pas recevoir de texte
+    // via Communications). Les donnees Garmin ne servent que de declencheur.
+
+    private function res(id as Lang.ResourceId) as Lang.String {
+        return Application.loadResource(id) as Lang.String;
+    }
+
+    private function dayMessage(dow as Lang.Number) as Lang.String {
+        // Gregorian.day_of_week : 1=DIM, 2=LUN, ... 7=SAM
+        if (dow == 1) { return res(Rez.Strings.Day7); }
+        if (dow == 2) { return res(Rez.Strings.Day1); }
+        if (dow == 3) { return res(Rez.Strings.Day2); }
+        if (dow == 4) { return res(Rez.Strings.Day3); }
+        if (dow == 5) { return res(Rez.Strings.Day4); }
+        if (dow == 6) { return res(Rez.Strings.Day5); }
+        return res(Rez.Strings.Day6);
+    }
+
+    private function inWindow(minute as Lang.Number, target as Lang.Number) as Lang.Boolean {
+        return (minute >= target) && (minute < target + POP_WINDOW);
+    }
+
+    private function showProtocolPopup(dc as Graphics.Dc, hour as Lang.Number, minute as Lang.Number, dow as Lang.Number, steps as Lang.Number, settings as System.DeviceSettings) as Void {
+        var key = -1;
+        var title = "";
+        var msg = "";
+        var sub = "";
+
+        if (hour == 7 && inWindow(minute, 0)) {
+            key = 700;
+            title = res(Rez.Strings.Pup07Title);
+            msg = res(Rez.Strings.Pup07Msg);
+        } else if (hour == 8 && inWindow(minute, 0)) {
+            key = 800;
+            title = res(Rez.Strings.Pup08Title);
+            msg = dayMessage(dow);
+        } else if (hour == 12 && inWindow(minute, 30)) {
+            key = 1230;
+            title = res(Rez.Strings.Pup12Title);
+            msg = res(Rez.Strings.Pup12Msg);
+        } else if (hour == 15 && inWindow(minute, 0)) {
+            key = 1500;
+            title = res(Rez.Strings.Pup15Title);
+            msg = res(Rez.Strings.Pup15Msg);
+        } else if (hour == 17 && inWindow(minute, 30)) {
+            key = 1730;
+            title = res(Rez.Strings.Pup17Title);
+            msg = res(Rez.Strings.Pup17Msg);
+            sub = res(Rez.Strings.Pup17Sub);
+        } else if (hour == 18 && inWindow(minute, 30)) {
+            key = 1830;
+            title = res(Rez.Strings.Pup18Title);
+            if (steps < 7000) {
+                msg = res(Rez.Strings.Pup18Msg);
+            } else {
+                msg = res(Rez.Strings.Pup18Ok);
+            }
+        } else if (hour == 20 && inWindow(minute, 30)) {
+            key = 2030;
+            title = res(Rez.Strings.Pup20Title);
+            msg = res(Rez.Strings.Pup20Msg);
+        } else if (hour == 21 && inWindow(minute, 0)) {
+            key = 2100;
+            title = res(Rez.Strings.Pup21Title);
+            msg = res(Rez.Strings.Pup21Msg);
+        } else if (hour == 21 && inWindow(minute, 30)) {
+            key = 2130;
+            title = res(Rez.Strings.Pup2130Title);
+            msg = res(Rez.Strings.Pup2130Msg);
+        } else if (hour == 22 && inWindow(minute, 0)) {
+            key = 2200;
+            title = res(Rez.Strings.Pup22Title);
+            msg = res(Rez.Strings.Pup22Msg);
+        } else if (hour == 22 && inWindow(minute, 30)) {
+            key = 2230;
+            title = res(Rez.Strings.Pup2230Title);
+            msg = res(Rez.Strings.Pup2230Msg);
+        }
+
+        if (key < 0) {
+            return;
+        }
+
+        if (key != lastVibKey) {
+            lastVibKey = key;
+            if (Attention has :vibrate) {
+                if (settings.vibrateOn) {
+                    Attention.vibrate([new Attention.VibeProfile(100, 300)]);
+                }
+            }
+        }
+
+        drawPopup(dc, title, msg, sub);
+    }
+
+    private function drawPopup(dc as Graphics.Dc, title as Lang.String, msg as Lang.String, sub as Lang.String) as Void {
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
+
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(POP_X + 8, POP_Y + 6, Graphics.FONT_TINY, title, Graphics.TEXT_JUSTIFY_LEFT);
+
+        var parts = wrapText(msg, 25);
+        var ty = POP_Y + 26;
+        for (var i = 0; i < parts.size(); i++) {
+            dc.drawText(POP_X + 8, ty, Graphics.FONT_SMALL, parts[i] as Lang.String, Graphics.TEXT_JUSTIFY_LEFT);
+            ty += 17;
+        }
+        if (!sub.equals("")) {
+            dc.drawText(POP_X + 8, POP_Y + POP_H - 20, Graphics.FONT_TINY, sub, Graphics.TEXT_JUSTIFY_LEFT);
+        }
+    }
+
+    private function wrapText(text as Lang.String, maxLen as Lang.Number) as Lang.Array {
+        var result = [""];
+        var current = "";
+        for (var i = 0; i < text.length(); i++) {
+            var ch = text.substring(i, i + 1);
+            if (ch.equals(" ")) {
+                if (current.length() > maxLen) {
+                    result.add(current);
+                    current = "";
+                } else {
+                    current = current + " ";
+                }
+            } else {
+                current = current + ch;
+            }
+        }
+        if (current.length() > 0) {
+            result.add(current);
+        }
+        return result;
     }
 
     private function drawFace(dc as Graphics.Dc, hour as Lang.Number, minute as Lang.Number, seconds as Lang.Number, dowStr as Lang.String, dayStr as Lang.String, monStr as Lang.String, kcalStr as Lang.String, stepsStr as Lang.String, battText as Lang.String, phoneConnected as Lang.Boolean) as Void {

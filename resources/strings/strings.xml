@@ -1,3 +1,47 @@
 <strings>
     <string id="AppName">Big Digits</string>
+
+    <!-- Rappels Protocoles — source unique : RAG Synthetix / EPUB Huberman.
+         Textes en majuscules ASCII : police systeme Connect IQ, lisibilite MIP. -->
+    <string id="Pup07Title">REVEIL</string>
+    <string id="Pup07Msg">10-30 MIN DE LUMIERE AU REVEIL</string>
+
+    <string id="Pup08Title">PROGRAMME DU JOUR</string>
+
+    <string id="Pup12Title">REPAS</string>
+    <string id="Pup12Msg">MARCHE 5-10 MIN APRES LE REPAS</string>
+
+    <string id="Pup15Title">STIMULANTS</string>
+    <string id="Pup15Msg">PLUS DE CAFEINE NI D ALCOOL CE SOIR</string>
+
+    <string id="Pup17Title">SOLEIL</string>
+    <string id="Pup17Msg">VA VOIR LE COUCHE DE SOLEIL</string>
+    <string id="Pup17Sub">10-15 MIN FACE A L OUEST</string>
+
+    <string id="Pup18Title">PAS</string>
+    <string id="Pup18Msg">PAS ASSEZ DE PAS - MARCHE 5 MIN</string>
+    <string id="Pup18Ok">OBJECTIF PAS ATTEINT</string>
+
+    <string id="Pup20Title">MOBILITE</string>
+    <string id="Pup20Msg">4 MOUVEMENTS 2-4 FOIS PAR SEMAINE</string>
+
+    <string id="Pup21Title">NSDR</string>
+    <string id="Pup21Msg">NSDR 20 MIN SI SOMMEIL INSUFFISANT</string>
+
+    <string id="Pup2130Title">CHAMBRE</string>
+    <string id="Pup2130Msg">18-20 C - EXTREMITES CHAUDES</string>
+
+    <string id="Pup22Title">ECRANS</string>
+    <string id="Pup22Msg">ECRANS OFF 1 H AVANT LE COUCHER</string>
+
+    <string id="Pup2230Title">CALME</string>
+    <string id="Pup2230Msg">1-3 SOUPIRS PHYSIOLOGIQUES</string>
+
+    <string id="Day1">JOUR 1 CARDIO 45-75 MIN DOUX</string>
+    <string id="Day2">JOUR 2 BAS DU CORPS 4-9 SERIES</string>
+    <string id="Day3">JOUR 3 REPOS - 7000 PAS</string>
+    <string id="Day4">JOUR 4 TORSE 4-9 SERIES</string>
+    <string id="Day5">JOUR 5 CARDIO 25-30 MIN MODERE</string>
+    <string id="Day6">JOUR 6 CARDIO 6-17 MIN INTENSE</string>
+    <string id="Day7">JOUR 7 EPAULES BRAS CORE</string>
 </strings>
