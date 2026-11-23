@@ -114,12 +114,23 @@ recompiler.
 
 ### Preuve visuelle (simulateur)
 
-Capture `docs/popup-simulator-proof.png` : le rectangle « SOLEIL / VA VOIR LE
-COUCHE DE SOLEIL / 10-15 MIN FACE A L O... » s'affiche bien sur le device
-`fr955`. La capture a été obtenue avec un cadran de test temporaire forçant le
-créneau 17:30 (le champ « Time Simulation » ne permet pas d'entrer 17:30 de
-façon fiable). Le binaire livré (`bin/bigdigits-fr955.prg`) est compilé depuis le
-code non modifié : le test n'a servi qu'à visualiser le rendu du popup.
+Captures relues sur le device `fr955` (cadran de test temporaire forçant le
+créneau, car le champ « Time Simulation » n'entre pas 17:30 de façon fiable) :
+
+| Fichier | Créneau | Contenu lisible |
+|---|---|---|
+| `docs/popup-0700-reveil.png` | 07:00 | REVEIL / 10-30 MIN DE LUMIE... |
+| `docs/popup-1730-coucher.png` | 17:30 | SOLEIL / VA VOIR LE COUCH / FACE A L OUEST |
+| `docs/popup-2230-calm.png` | 22:30 | CALME / 1-3 SOUPIRS |
+
+Le binaire livré (`bin/bigdigits-fr955.prg`) est compilé depuis le code non
+modifié : le test n'a servi qu'à visualiser le rendu du popup.
+
+Deux défauts observés puis corrigés : le premier crop de preuve montrait le gizmo
+Blender au lieu du cadran ; et le texte débordait du rectangle sur les messages
+longs. `drawPopup` applique désormais un wrap à 16 caractères (`FONT_SMALL`) et
+tronque le sous-titre à 14 (`FONT_TINY`). Les messages les plus longs ont été
+raccourcis dans `strings.xml`.
 
 Pour lancer le simulateur sur Arch : le binaire 9.3.0 demande les SONAME legacy
 `libwebkit2gtk-4.0.so.37`, `libjavascriptcoregtk-4.0.so.18`, `libsoup-2.4.so.1`

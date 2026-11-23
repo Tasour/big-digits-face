@@ -281,14 +281,22 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         dc.drawText(POP_X + 8, POP_Y + 6, Graphics.FONT_TINY, title, Graphics.TEXT_JUSTIFY_LEFT);
 
-        var parts = wrapText(msg, 25);
+        // FONT_SMALL ~14 px par lettre sur fr955 : 232 px permettent ~16 caracteres.
+        var parts = wrapText(msg, 16);
         var ty = POP_Y + 26;
         for (var i = 0; i < parts.size(); i++) {
-            dc.drawText(POP_X + 8, ty, Graphics.FONT_SMALL, parts[i] as Lang.String, Graphics.TEXT_JUSTIFY_LEFT);
+            var part = parts[i] as Lang.String;
+            if (part.length() > 16) { part = part.substring(0, 16); }
+            dc.drawText(POP_X + 8, ty, Graphics.FONT_SMALL, part, Graphics.TEXT_JUSTIFY_LEFT);
             ty += 17;
         }
         if (!sub.equals("")) {
-            dc.drawText(POP_X + 8, POP_Y + POP_H - 20, Graphics.FONT_TINY, sub, Graphics.TEXT_JUSTIFY_LEFT);
+            // FONT_TINY ~15 px par lettre sur fr955 : 232 px permettent ~14 caracteres.
+            var shortSub = sub;
+            if (shortSub.length() > 14) {
+                shortSub = shortSub.substring(0, 14);
+            }
+            dc.drawText(POP_X + 8, POP_Y + POP_H - 20, Graphics.FONT_TINY, shortSub, Graphics.TEXT_JUSTIFY_LEFT);
         }
     }
 

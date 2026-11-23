@@ -16,7 +16,8 @@
 
     <string id="Pup17Title">SOLEIL</string>
     <string id="Pup17Msg">VA VOIR LE COUCHE DE SOLEIL</string>
-    <string id="Pup17Sub">10-15 MIN FACE A L OUEST</string>
+    <!-- 14 caracteres max dans le rectangle (POP_W=232, FONT_TINY). -->
+    <string id="Pup17Sub">FACE A L OUEST</string>
 
     <string id="Pup18Title">PAS</string>
     <string id="Pup18Msg">PAS ASSEZ DE PAS - MARCHE 5 MIN</string>
@@ -35,7 +36,7 @@
     <string id="Pup22Msg">ECRANS OFF 1 H AVANT LE COUCHER</string>
 
     <string id="Pup2230Title">CALME</string>
-    <string id="Pup2230Msg">1-3 SOUPIRS PHYSIOLOGIQUES</string>
+    <string id="Pup2230Msg">1-3 SOUPIRS</string>
 
     <string id="Day1">JOUR 1 CARDIO 45-75 MIN DOUX</string>
     <string id="Day2">JOUR 2 BAS DU CORPS 4-9 SERIES</string>
