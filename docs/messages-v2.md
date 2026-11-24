@@ -5,8 +5,8 @@ Règles appliquées : U01 (1 sens), U03 (hiérarchie), U18 (vocabulaire stable),
 U19 (tokens), U41 (catégorie portée par le texte + bordure), U73 (pas de coupe
 au milieu d'un mot).
 
-Le message est dessiné en `FONT_SYSTEM_XTINY` dans un popup de 244 px, avec un
-wrap à 30 caractères : les phrases longues passent sur deux lignes, les autres
+Le message est dessiné en `FONT_SYSTEM_XTINY` dans un popup de 220 px centré à
+(20,61), avec un wrap à 30 caractères : les phrases longues passent sur deux lignes, les autres
 tiennent sur une seule. Le titre reste en `FONT_SMALL`. Les durées NSDR sont
 30 / 20 / 10 / 10 min selon le moment : le livre donne « ten- to thirty-minute
 NSDR session » et « 20 to 30 minutes if you slept poorly » ; le 10 min avant

@@ -5,12 +5,13 @@ test forçant le créneau (le champ « Time Simulation » n'entre pas 17:30 de
 façon fiable). Deux recadrages par variante :
 
 - `*-watch.png` — cadran complet, 520 × 520 px ;
-- `*-popup.png` — rectangle seul, 492 × 228 px (244 × 112 px CIQ × 2 + marge).
+- `*-popup.png` — rectangle seul, 444 × 280 px (220 × 138 px CIQ × 2 + marge).
 
-Rendu final : fond noir, titre `FONT_SMALL` et message `FONT_SYSTEM_XTINY` en
-blanc centrés, bordure pleine de 3 px colorée par catégorie, wrap à 30
-caractères (deux lignes maximum), barre de 7 carrés de 30 px portant les lettres
-`LMMJVSD`. Plein = couleur de bordure et lettre noire ; vide = contour blanc et
+Rendu final : rectangle 220 × 138 centré à (20,61) — ses quatre coins tombent
+sur le cercle d'affichage — fond noir, titre `FONT_SMALL` et message
+`FONT_SYSTEM_XTINY` en blanc centrés, bordure pleine de 3 px colorée par
+catégorie, wrap à 30 caractères (deux lignes maximum), barre de 7 carrés de
+30 px contigus portant les lettres `LMMJVSD`. Plein = couleur de bordure et lettre noire ; vide = contour blanc et
 lettre blanche. Chaque image a été relue : accents `é è °`, aucune coupure de
 mot, aucun chevauchement. Le contexte n'est plus dessiné (il chevauchait les
 carrés).
@@ -44,6 +45,21 @@ séance est un choix de design.
 Les lettres `LMMJVSD` sont calculées depuis `day_of_week` en remontant de 0 à 6
 jours (bit 0 = aujourd'hui). Le harnais appelle les vrais helpers de sélection
 `nsdrContext(hour)` et `nsdrMessage(hour)`.
+
+## App compagnon — diagnostic et test
+
+- `app-diagnostic-watch.png` — vue d'ouverture : 15 métriques en deux colonnes,
+  ✔ vert quand l'accès est validé, ✘ rouge sinon (`Réveil` et `Météo` sont rouges
+  dans le simulateur, faute de profil et de téléphone synchronisé).
+- `app-test-panel-watch.png` — panneau affiché immédiatement après un appui sur
+  le bouton haut droit : la vue relance toutes les requêtes puis montre une
+  réplique du popup ( lettres `LMMJVSD`, 3 carrés remplis ).
+
+Ces deux vues sont capturées dans le simulateur avec le vrai `.prg` de l'app ;
+le panneau de test est forcé au démarrage dans une copie non versionnée pour
+pouvoir le photographier sans appui physique. Le bouton lui-même est câblé dans
+`getInitialView()` → `DiagDelegate.onPress()` ; l'appui réel n'est pas vérifiable
+en simulateur (`notMeasured`).
 
 ## Méthode et limites
 

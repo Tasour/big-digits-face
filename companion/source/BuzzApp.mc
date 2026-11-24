@@ -1,7 +1,5 @@
-// App compagnon du cadran Big Digits : un buzz court et discret aux memes
-// rappels Protocoles. Le cadran garde les popups et le score d'habitude ;
-// cette app apporte la vibration et des donnees historiques (SensorHistory,
-// Weather) que la watch face ne peut pas exploiter.
+// App compagnon du cadran Big Digits : buzz court, diagnostic des donnees
+// utilisees par les algorithmes et panneau de test du rendu.
 using Toybox.Application as App;
 using Toybox.Attention;
 using Toybox.Background;
@@ -18,6 +16,7 @@ using Toybox.Weather;
 using Toybox.WatchUi as Ui;
 
 const DAY_SECONDS = 86400;
+var gMetrics = [] as Lang.Array;
 
 function dayIndex() as Lang.Number {
     return Time.now().value() / DAY_SECONDS;
@@ -40,37 +39,49 @@ function bedMinutes() as Lang.Number {
         var d = Gregorian.info(p.upcomingSleepTime, Time.FORMAT_SHORT);
         return d.hour * 60 + d.min;
     }
-    return 1380; // 23:00 par defaut
+    return 1380;
+}
+
+function rawSunsetMinutes() as Lang.Number or Null {
+    if (!(Toybox has :Weather) || !(Weather has :getSunset)) { return null; }
+    var pos = Position.getInfo();
+    if (pos == null || pos.position == null) { return null; }
+    var deg = pos.position.toDegrees();
+    var loc = new Position.Location({
+        :latitude => deg[0], :longitude => deg[1], :format => :degrees
+    });
+    var moment = Weather.getSunset(loc, Time.now());
+    if (moment == null) { return null; }
+    var d = Gregorian.info(moment, Time.FORMAT_SHORT);
+    return d.hour * 60 + d.min;
 }
 
 function sunsetMinutes() as Lang.Number {
-    if (Toybox has :Weather && Weather has :getSunset) {
-        var pos = Position.getInfo();
-        if (pos != null && pos.position != null) {
-            var deg = pos.position.toDegrees();
-            var loc = new Position.Location({
-                :latitude => deg[0], :longitude => deg[1], :format => :degrees
-            });
-            var moment = Weather.getSunset(loc, Time.now());
-            if (moment != null) {
-                var d = Gregorian.info(moment, Time.FORMAT_SHORT);
-                return d.hour * 60 + d.min;
-            }
-        }
+    var sun = rawSunsetMinutes();
+    return sun == null ? 1050 : sun as Lang.Number;
+}
+
+function sensorSample(method as Lang.Symbol) as Lang.Number or Null {
+    if (!(Toybox has :SensorHistory)) { return null; }
+    if (method == :stress) {
+        if (!(SensorHistory has :getStressHistory)) { return null; }
+        var it = SensorHistory.getStressHistory({:period => new Time.Duration(3600)});
+        if (it == null) { return null; }
+        var s = it.next();
+        if (s == null || s.data == null) { return null; }
+        return s.data as Lang.Number;
     }
-    return 1050; // 17:30 repli
+    if (!(SensorHistory has :getBodyBatteryHistory)) { return null; }
+    var it2 = SensorHistory.getBodyBatteryHistory({:period => new Time.Duration(3600)});
+    if (it2 == null) { return null; }
+    var s2 = it2.next();
+    if (s2 == null || s2.data == null) { return null; }
+    return s2.data as Lang.Number;
 }
 
 function recentStress() as Lang.Number {
-    if (Toybox has :SensorHistory && SensorHistory has :getStressHistory) {
-        var iter = SensorHistory.getStressHistory({:period => new Time.Duration(3600)});
-        if (iter != null) {
-            var sample = iter.next();
-            if (sample != null && sample.data != null) {
-                return sample.data as Lang.Number;
-            }
-        }
-    }
+    var s = sensorSample(:stress);
+    if (s != null) { return s as Lang.Number; }
     var info = ActivityMonitor.getInfo();
     if (info != null && info.stressScore != null) {
         return info.stressScore as Lang.Number;
@@ -109,8 +120,6 @@ function stepsShort() as Lang.Boolean {
     return steps < goal * 0.85;
 }
 
-// Un seul evenement temporel peut etre enregistre : on le recharge a chaque
-// reveil, avec le prochain creneau utile.
 function registerNext() as Void {
     var now = dayMinutes();
     var cands = [420, 750, 900, 1050, 1110, 1320, 1350] as Lang.Array;
@@ -118,7 +127,6 @@ function registerNext() as Void {
     cands.add(bedMinutes() - 480);
     cands.add(bedMinutes() - 60);
 
-    // tri insertion (tableau court)
     for (var i = 1; i < cands.size(); i++) {
         var v = cands[i] as Lang.Number;
         var j = i - 1;
@@ -155,6 +163,8 @@ function evaluateAndBuzz() as Void {
     var m = now % 60;
     var st = recentStress();
     var slot = -1;
+    var sd = now - sunsetMinutes();
+    if (sd < 0) { sd = -sd; }
 
     if (wakeWindow(now)) {
         slot = 700;
@@ -162,7 +172,7 @@ function evaluateAndBuzz() as Void {
         slot = 1230;
     } else if (nearBed(480, now)) {
         slot = 1500;
-    } else if ((now - sunsetMinutes()).abs() <= 2) {
+    } else if (sd <= 2) {
         slot = 1730;
     } else if (h == 18 && m >= 30 && m < 31 && stepsShort()) {
         slot = 1830;
@@ -175,6 +185,177 @@ function evaluateAndBuzz() as Void {
     }
 
     if (slot >= 0) { buzzOnce(slot); }
+}
+
+// --- Diagnostic des donnees ------------------------------------------------
+
+function checkStorage() as Lang.Boolean {
+    var key = "diag.probe";
+    App.Storage.setValue(key, 42);
+    var v = App.Storage.getValue(key);
+    App.Storage.setValue(key, 0);
+    return v != null && v instanceof Lang.Number && (v as Lang.Number) == 42;
+}
+
+function profileHasWake() as Lang.Boolean {
+    var p = UserProfile.getProfile();
+    return p != null && p has :upcomingWakeTime && p.upcomingWakeTime != null;
+}
+
+function profileHasSleep() as Lang.Boolean {
+    var p = UserProfile.getProfile();
+    return p != null && p has :sleepTime && p.sleepTime != null;
+}
+
+function refreshMetrics() as Void {
+    var info = ActivityMonitor.getInfo();
+    var prof = UserProfile.getProfile();
+    var body = false;
+    if (prof != null) {
+        body = prof.birthYear != null && prof.height != null &&
+               prof.weight != null && prof.gender != null;
+    }
+    var settings = System.getDeviceSettings();
+
+    gMetrics = [
+        ["Horloge", System.getClockTime() != null],
+        ["Réglages", settings != null],
+        ["Réveil", profileHasWake()],
+        ["Sommeil", profileHasSleep()],
+        ["Corps", body],
+        ["Pas", info != null && info.steps != null],
+        ["Objectif", info != null && info.stepGoal != null],
+        ["Stress", info != null && info.stressScore != null],
+        ["Position", Position.getInfo() != null],
+        ["Météo", rawSunsetMinutes() != null],
+        ["Stress 1h", sensorSample(:stress) != null],
+        ["Battery", sensorSample(:bodybattery) != null],
+        ["Buzz", Attention has :vibrate],
+        ["Background", Background has :registerForTemporalEvent],
+        ["Stockage", checkStorage()]
+    ] as Lang.Array;
+}
+
+function drawGlyph(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, ok as Lang.Boolean) as Void {
+    dc.setColor(ok ? Graphics.COLOR_GREEN : Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+    if (ok) {
+        dc.drawLine(x - 4, y, x - 1, y + 3);
+        dc.drawLine(x - 1, y + 3, x + 5, y - 4);
+    } else {
+        dc.drawLine(x - 4, y - 4, x + 4, y + 4);
+        dc.drawLine(x + 4, y - 4, x - 4, y + 4);
+    }
+}
+
+function weekdayLetters() as Lang.Array {
+    var names = ["L", "M", "M", "J", "V", "S", "D"];
+    var out = [] as Lang.Array;
+    var dow = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day_of_week;
+    for (var i = 0; i < 7; i++) {
+        var gi = (dow - 1 - i) % 7;
+        if (gi < 0) { gi += 7; }
+        out.add(names[(gi + 6) % 7]);
+    }
+    return out;
+}
+
+class DiagView extends Ui.View {
+    function initialize() {
+        View.initialize();
+    }
+
+    function onUpdate(dc as Graphics.Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(dc.getWidth() / 2, 26, Graphics.FONT_SMALL, "DIAGNOSTIC",
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        // Deux colonnes : 8 lignes par colonne, libelles courts et non coupes.
+        for (var i = 0; i < gMetrics.size(); i++) {
+            var row = gMetrics[i] as Lang.Array;
+            var col = i / 8;
+            var idx = i % 8;
+            var x = col == 0 ? 18 : 136;
+            var y = 42 + idx * 20;
+            drawGlyph(dc, x, y, row[1] as Lang.Boolean);
+            dc.drawText(x + 12, y, Graphics.FONT_SYSTEM_XTINY, row[0] as Lang.String,
+                        Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        }
+    }
+}
+
+class TestPanelView extends Ui.View {
+    function initialize() {
+        View.initialize();
+    }
+
+    function onUpdate(dc as Graphics.Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        var x = 20;
+        var y = 61;
+        var w = 220;
+        var h = 138;
+        var border = 3;
+        dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x, y, w, h);
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(x + border, y + border, w - 2 * border, h - 2 * border);
+
+        var cx = x + w / 2;
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, y + 20, Graphics.FONT_SMALL, "TEST", justify);
+        dc.drawText(cx, y + 48, Graphics.FONT_SYSTEM_XTINY, "Panneau de test", justify);
+
+        var side = 30;
+        var gap = 0;
+        var bx = cx - (7 * side + 6 * gap) / 2 + side / 2;
+        var by = y + 108;
+        var letters = weekdayLetters();
+        for (var i = 0; i < 7; i++) {
+            var px = bx + i * (side + gap) - side / 2;
+            var py = by - side / 2;
+            var done = (0x05 & (1 << i)) != 0;
+            if (done) {
+                dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
+                dc.fillRectangle(px, py, side, side);
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+            } else {
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                dc.drawRectangle(px, py, side, side);
+            }
+            dc.drawText(px + side / 2, by, Graphics.FONT_XTINY, letters[i] as Lang.String, justify);
+        }
+    }
+}
+
+class TestPanelDelegate extends Ui.BehaviorDelegate {
+    function initialize() {
+        BehaviorDelegate.initialize();
+    }
+
+    function onBack() as Lang.Boolean {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+        return true;
+    }
+
+    function onPress() as Lang.Boolean {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+        return true;
+    }
+}
+
+class DiagDelegate extends Ui.BehaviorDelegate {
+    function initialize() {
+        BehaviorDelegate.initialize();
+    }
+
+    function onPress() as Lang.Boolean {
+        refreshMetrics();
+        Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
+        return true;
+    }
 }
 
 (:background)
@@ -190,32 +371,18 @@ class BuzzDelegate extends System.ServiceDelegate {
     }
 }
 
-class BuzzView extends Ui.View {
-    function initialize() {
-        View.initialize();
-    }
-
-    function onUpdate(dc as Graphics.Dc) as Void {
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.clear();
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, Graphics.FONT_SMALL,
-                    "Protocoles Buzz actif",
-                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-    }
-}
-
 class BuzzApp extends App.AppBase {
     function initialize() {
         AppBase.initialize();
     }
 
     function onStart(state as Lang.Dictionary or Null) as Void {
+        refreshMetrics();
         registerNext();
     }
 
     function getInitialView() {
-        return [new BuzzView()];
+        return [new DiagView(), new DiagDelegate()];
     }
 
     function getServiceDelegate() {

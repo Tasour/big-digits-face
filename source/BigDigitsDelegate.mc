@@ -9,6 +9,9 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
     }
 
     function onPress(clickEvent as WatchUi.ClickEvent) as Lang.Boolean {
+        if (gBigDigitsView != null) {
+            return gBigDigitsView.onButtonPress();
+        }
         return false;
     }
 }

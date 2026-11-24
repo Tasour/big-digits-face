@@ -43,6 +43,8 @@
     <string id="Pup2230Msg">1-3 soupirs physiologiques</string>
     <string id="Pup2230Ctx">Stress élevé détecté</string>
 
+    <string id="TestTitle">Test</string>
+    <string id="TestMsg">Panneau de test</string>
     <string id="HabitDone">Fait aujourd'hui</string>
     <string id="HabitEmpty">--</string>
 </strings>

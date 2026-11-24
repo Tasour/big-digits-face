@@ -59,10 +59,10 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     // Popup : centre legerement plus haut que l'ancienne version, hauteur
     // portee a 112 px pour loger des carres de 30 px avec leurs lettres.
-    const POP_X = 8;
-    const POP_Y = 88;
-    const POP_W = 244;
-    const POP_H = 112;
+    const POP_X = 20;
+    const POP_Y = 61;
+    const POP_W = 220;
+    const POP_H = 138;
     const POP_MS = 25000;
 
     // Tokens de couleur par categorie (U19) — valeurs CIQ, pas de volatiles.
@@ -189,7 +189,8 @@ class BigDigitsView extends WatchUi.WatchFace {
         drawSeconds(dc, clock.sec);
         if (activeKey >= 0) {
             var nowMs = Time.now().value() * 1000;
-            if (nowMs - popupStart >= POP_MS) {
+            var limit = activeKey == 9999 ? 10000 : POP_MS;
+            if (nowMs - popupStart >= limit) {
                 activeKey = -1;
                 dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
                 dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
@@ -247,6 +248,15 @@ class BigDigitsView extends WatchUi.WatchFace {
         activeBits = bits;
         popupStart = Time.now().value() * 1000;
         WatchUi.requestUpdate();
+        return true;
+    }
+
+    // Bouton haut droit : accuse reception si un rappel est actif, sinon
+    // affiche un panneau de test de 10 s directement sur le cadran.
+    public function onButtonPress() as Lang.Boolean {
+        if (activeKey >= 0) { return markDone(); }
+        setPopup(9999, res(Rez.Strings.TestTitle), res(Rez.Strings.TestMsg),
+                 "", Graphics.COLOR_ORANGE);
         return true;
     }
 
@@ -509,10 +519,10 @@ class BigDigitsView extends WatchUi.WatchFace {
 
         // Barre de 7 carres avec la lettre du jour concerne au centre.
         var side = 30;
-        var gap = 2;
+        var gap = 0;
         var total = 7 * side + 6 * gap;
         var bx = centerX - total / 2 + side / 2;
-        var by = POP_Y + 92;
+        var by = POP_Y + 108;
         var letters = weekdayLetters();
         for (var i = 0; i < 7; i++) {
             var cx = bx + i * (side + gap);

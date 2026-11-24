@@ -137,7 +137,8 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
   confirmés sur `fr955` (`accent-test.png`).
 - **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_SYSTEM_XTINY`,
   contexte affiché seulement si le message tient sur une ligne. Échelle fermée.
-- **Rectangle** (U79) : 244×112 à (8,88), **fond noir et texte blanc**. Bordure
+- **Rectangle** (U79) : 220×138 centré à (20,61), **fond noir et texte blanc**.
+  Ses quatre coins tombent sur le cercle d'affichage (rayon 130). Bordure
   pleine de 3 px colorée par catégorie (U19/U41) : orange = lumière,
   bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme.
 - **Centrage** : titre, message et barre centrés horizontalement et
@@ -149,9 +150,8 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
 - **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
 - **Wrap** (U73) : `wrapText()` démarre avec un tableau vide. Une entrée `""`
   initiale masquait la première ligne et tronquait tous les messages ; la
-  la découpe est à 36 caractères avec `FONT_SYSTEM_XTINY` dans 238 px utiles,
-  ce qui fait tenir les phrases sur une seule ligne. Défauts corrigés après
-  relecture des captures.
+  la découpe est à 30 caractères avec `FONT_SYSTEM_XTINY` dans 214 px utiles.
+  Défauts corrigés après relecture des captures.
 - **Habitude** : barre de 7 carrés, fenêtre glissante 7 jours, un seul appui par
   jour via `WatchFaceDelegate` (bouton haut droit). Score persisté dans
   `Application.Storage`. Un second appui est ignoré.
@@ -187,8 +187,11 @@ ID dédié) qui fournit le retour haptique impossible depuis le cadran :
 - algorithmes raffinés par les données réservées aux watch-apps :
   `Weather.getSunset()` pour le coucher, `SensorHistory.getStressHistory()` pour
   NSDR et Calme, `UserProfile` pour le sommeil et le coucher ;
-- aucun `WatchUi.pushView` : l'app reste haptique, les popups visuels restent
-  dans le cadran.
+- **vue diagnostic** en deux colonnes (15 métriques, ✔ vert / ✘ rouge) avec
+  test réel de chaque accès ; le bouton haut droit relance toutes les requêtes
+  puis affiche immédiatement un panneau de test répliquant le popup du cadran ;
+- le cadran a aussi son propre test : bouton haut droit quand aucun rappel
+  n'est actif → popup `Test` de 10 s (`docs/screens/app-test-panel-watch.png`).
 
 ```bash
 cd companion && ./build.sh
