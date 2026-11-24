@@ -136,9 +136,15 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
   confirmés sur `fr955` (`accent-test.png`).
 - **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_TINY`, contexte
   affiché seulement si le message tient sur une ligne. Échelle fermée à 2 niveaux.
-- **Rectangle** (U79) : 232×96 à y=88, bordure colorée par catégorie (U19/U41) :
-  orange = lumière, bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme.
-  Le titre texte reste porteur du sens si la couleur n'est pas rendue.
+- **Rectangle** (U79) : 232×96 à y=88, **fond noir et texte blanc**. Bordure
+  pleine de 3 px colorée par catégorie (U19/U41) : orange = lumière,
+  bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme. Le titre
+  texte reste porteur du sens si la couleur n'est pas rendue.
+- **Centrage** : titre, deux lignes de message et barre d'habitude sont centrés
+  horizontalement (`TEXT_JUSTIFY_CENTER`) et verticalement
+  (`TEXT_JUSTIFY_VCENTER`). Interligne porté à 23 px CIQ.
+- **Habitude (forme)** : 7 carrés de 6 px, vides (contour blanc) si non fait,
+  pleins (couleur de catégorie) si fait.
 - **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
 - **Wrap** (U73) : `wrapText()` démarre avec un tableau vide. Une entrée `""`
   initiale masquait la première ligne et tronquait tous les messages ; la

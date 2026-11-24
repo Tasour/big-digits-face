@@ -458,43 +458,52 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     private function drawPopup(dc as Graphics.Dc) as Void {
         // U79 : surimpression, le cadran reste a sa place (aucun decalage).
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
+        // Fond noir : la couleur de categorie est portee par la bordure (U19/U41).
+        var border = 3;
         dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawRectangle(POP_X, POP_Y, POP_W, POP_H);
-        dc.drawRectangle(POP_X + 1, POP_Y + 1, POP_W - 2, POP_H - 2);
-
+        dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(POP_X + 8, POP_Y + 2, Graphics.FONT_SMALL, activeTitle, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.fillRectangle(POP_X + border, POP_Y + border,
+                         POP_W - 2 * border, POP_H - 2 * border);
+
+        // Centrage horizontal et vertical de chaque bloc de texte.
+        var centerX = POP_X + POP_W / 2;
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(centerX, POP_Y + 20, Graphics.FONT_SMALL, activeTitle, justify);
 
         var parts = wrapText(activeMsg, 18);
-        // Le titre FONT_SMALL descend jusqu'a ~POP_Y+20 : 24 ne laissait que 2 px CIQ.
-        var ty = POP_Y + 28;
+        var lineY = POP_Y + 46;
         for (var i = 0; i < parts.size() && i < 2; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
             if (part.length() > 18) { part = part.substring(0, 18); }
-            dc.drawText(POP_X + 8, ty, Graphics.FONT_TINY, part, Graphics.TEXT_JUSTIFY_LEFT);
-            ty += 17;
+            dc.drawText(centerX, lineY, Graphics.FONT_TINY, part, justify);
+            lineY += 23;
         }
 
         // Contexte affiche uniquement si le message tient sur une ligne.
         var ctx = activeCtx;
         if (ctx == null) { ctx = "" as Lang.String; }
         if (parts.size() < 2) {
-            dc.drawText(POP_X + 8, POP_Y + 72, Graphics.FONT_TINY, ctx, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(centerX, POP_Y + 84, Graphics.FONT_TINY, ctx, justify);
         }
 
-        // Barre de 7 points d'habitude (U41 : le texte reste porteur du sens).
-        var bx = POP_X + 8;
+        // Barre de 7 carres d'habitude (U41 : le texte reste porteur du sens).
+        var side = 6;
+        var gap = 4;
+        var total = 7 * side + 6 * gap;
+        var bx = centerX - total / 2 + side / 2;
+        var by = POP_Y + 87;
         for (var i = 0; i < 7; i++) {
+            var cx = bx + i * (side + gap);
             var bit = 1 << i;
             if ((activeBits & bit) != 0) {
                 dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
-                dc.fillCircle(bx + i * 10, POP_Y + POP_H - 8, 3);
+                dc.fillRectangle(cx - side / 2, by - side / 2, side, side);
             } else {
-                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-                dc.drawCircle(bx + i * 10, POP_Y + POP_H - 8, 3);
+                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+                dc.drawRectangle(cx - side / 2, by - side / 2, side, side);
             }
         }
     }

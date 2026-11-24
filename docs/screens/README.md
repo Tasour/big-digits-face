@@ -7,8 +7,10 @@ façon fiable). Deux recadrages par variante :
 - `*-watch.png` — cadran complet, 520 × 520 px ;
 - `*-popup.png` — rectangle seul, 466 × 194 px (232 × 96 px CIQ × 2).
 
-Chaque image a été relue : titre en Title Case, message complet sur deux
-lignes, accents `é è °`, bordure par catégorie, barre de 7 points dégagée.
+Rendu final : fond noir, texte blanc centré horizontalement et verticalement,
+bordure pleine de 3 px colorée par catégorie, interligne de 23 px CIQ, barre de
+7 carrés (vides si non fait, pleins si fait). Chaque image a été relue : titre
+en Title Case, message complet sur deux lignes, accents `é è °`.
 
 ## Les huit messages
 
