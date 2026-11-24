@@ -5,43 +5,31 @@ Règles appliquées : U01 (1 sens), U03 (hiérarchie), U18 (vocabulaire stable),
 U19 (tokens), U41 (catégorie portée par le texte + bordure), U73 (pas de coupe
 au milieu d'un mot).
 
-Le message est dessiné en `FONT_XTINY` : mesure sur `fr955`, ~7,5 px CIQ par
-caractère, soit ~135 px pour 18 caractères dans 216 px de largeur utile. Le
-titre reste en `FONT_SMALL`. La durée NSDR retenue est 20 min : les extraits RAG
-donnent « ten- to thirty-minute NSDR session » et « 20 to 30 minutes if you
-slept poorly » ; 20 min est la seule valeur commune.
+Le message est dessiné en `FONT_SYSTEM_XTINY` dans un popup de 244 px, avec un
+wrap à 30 caractères : les phrases longues passent sur deux lignes, les autres
+tiennent sur une seule. Le titre reste en `FONT_SMALL`. Les durées NSDR sont
+30 / 20 / 10 / 10 min selon le moment : le livre donne « ten- to thirty-minute
+NSDR session » et « 20 to 30 minutes if you slept poorly » ; le 10 min avant
+séance est un choix de design, pas une donnée source.
 
 | Heure | Catégorie | Titre | Message compilé | Algorithme de déclenchement |
 |---|---|---|---|---|
-| 07:00 | Lumière — ORANGE | `Réveil` | `10-30 min de lumière au réveil` | `wakeWindow()` : `upcomingWakeTime`, `now ∈ [wake, wake+30]`, sommeil < 420 min |
+| 07:00 | Lumière — ORANGE | `Réveil` | `Part regarder le lever de soleil` | `wakeWindow()` : `upcomingWakeTime`, `now ∈ [wake, wake+30]`, sommeil < 420 min |
 | 12:30 | Marche — BLEU | `Repas` | `Marche 5-10 min après le repas` | `hour == 12 && 30 ≤ min < 31` (créneau fixe, non mesuré) |
 | 15:00 | Stimulants — VIOLET | `Stimulants` | `Plus de caféine ni d'alcool ce soir` | `nearBed(480)` : coucher − 8 h ± 2 |
-| 17:30 | Soleil — VIOLET | `Soleil` | `Va voir le coucher de soleil` | NOAA en cache : `now ∈ [sunset, sunset+2]` ; repli `nearBed(120)` |
+| 17:30 | Soleil — VIOLET | `Soleil` | `Part regarder le coucher de soleil` | NOAA en cache : `now ∈ [sunset, sunset+2]` ; repli `nearBed(120)` |
 | 18:30 | Pas — BLEU | `Pas` | `Marche 5 min, pas assez` | `hour == 18 && 30 ≤ min < 31 && steps < 0,85 × stepGoal` |
-| 21:00 | NSDR — VIOLET | `NSDR` | `20 min de repos si stress élevé` | `stress > 50` ou (`sleep < 420` et `10 ≤ hour ≤ 16`) ; contexte = `nsdrContext(hour)` |
+| 21:00 | NSDR — VIOLET | `NSDR` | `30 min de repos au réveil` / `20 min de repos après-midi` / `10 min de repos avant séance` / `10 min de repos le soir` | `stress > 50` ou (`sleep < 420` et `10 ≤ hour ≤ 16`) ; `nsdrMessage(hour)` |
 | 22:00 | Écrans — VIOLET | `Écrans` | `Écrans off 1 h avant le coucher` | `nearBed(60)` : coucher − 1 h ± 2 |
 | 22:30 | Calme — VIOLET | `Calme` | `1-3 soupirs physiologiques` | `hour == 22 && 30 ≤ min < 31 && stress > 40` |
 
-Les rappels `Programme` (08:00), `Mobilité` (20:30) et `Température chambre`
-(21:30) ont été retirés à la demande de l'utilisateur : leurs variantes
-dépendaient de données ou de règles non mesurables depuis une watch face.
+Les rappels `Programme`, `Mobilité` et `Température chambre` ont été retirés à
+la demande de l'utilisateur : ils dépendaient de données non mesurables depuis
+une watch face. Le contexte n'est plus dessiné dans le popup : avec la nouvelle
+mise en page, les lignes de contexte trop longues se chevauchaient avec les
+carrés. Les chaînes sont conservées mais non utilisées.
 
-## Découpage réel en 2 lignes × 18 caractères (wrap sur espace)
-
-Relevé sur les captures du simulateur `fr955`, après correction de `wrapText`
-(le tableau démarrait avec une entrée vide, ce qui masquait la première ligne) :
-
-- `10-30 min de` / `lumière au réveil`
-- `Va voir le coucher` / `de soleil`
-- `1-3 soupirs` / `physiologiques`
-- `Plus de caféine ni` / `d'alcool ce soir`
-- `Marche 5-10 min` / `après le repas`
-- `Marche 5 min,` / `pas assez`
-- `Écrans off 1 h` / `avant le coucher`
-- `20 min de repos si` / `stress élevé`
-
-Les lignes de contexte (`Pup07Ctx`, `Pup17Ctx`, …) ne sont affichées que lorsque
-le message tient sur une seule ligne. Avec le jeu de messages v2, tous les
-messages occupent deux lignes : le contexte est donc masqué par construction.
-Le helper `nsdrContext(hour)` est néanmoins exercé par les captures
-`2100-nsdr-*` ; la distinction à l'écran reste `notMeasured`.
+L'app compagnon `companion/` réévalue les mêmes créneaux avec des données
+réservées aux watch-apps (`Weather.getSunset()`, `SensorHistory`) et déclenche
+un buzz court. Elle n'a pas d'app ID partagé avec le cadran : les deux peuvent
+diverger sur une condition limite, et le score d'habitude reste dans le cadran.

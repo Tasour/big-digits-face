@@ -6,7 +6,7 @@
          Accents confirmes sur fr955 avec FONT_TINY (capture accent-test.png). -->
 
     <string id="Pup07Title">Réveil</string>
-    <string id="Pup07Msg">10-30 min de lumière au réveil</string>
+    <string id="Pup07Msg">Part regarder le lever de soleil</string>
     <string id="Pup07Ctx">Lever du soleil ou 10 000 lux</string>
 
     <string id="Pup1230Title">Repas</string>
@@ -18,7 +18,7 @@
     <string id="Pup15Ctx">Coucher dans 8 h</string>
 
     <string id="Pup17Title">Soleil</string>
-    <string id="Pup17Msg">Va voir le coucher de soleil</string>
+    <string id="Pup17Msg">Part regarder le coucher de soleil</string>
     <string id="Pup17Ctx">Coucher solaire calculé</string>
 
     <string id="Pup18Title">Pas</string>
@@ -26,10 +26,13 @@
     <string id="Pup18Ctx">Moins de 85 % du stepGoal</string>
 
     <string id="Pup21Title">NSDR</string>
-    <string id="Pup21Msg">20 min de repos si stress élevé</string>
+    <string id="Pup21Msg30">30 min de repos au réveil</string>
+    <string id="Pup21Msg20">20 min de repos après-midi</string>
+    <string id="Pup21Msg10Seance">10 min de repos avant séance</string>
+    <string id="Pup21Msg10Soir">10 min de repos le soir</string>
     <string id="Pup21Matin">Matin : réveil incomplet</string>
     <string id="Pup21ApresMidi">Après-midi : à la place d'une sieste</string>
-    <string id="Pup21Seance">Avant séance : energia basse</string>
+    <string id="Pup21Seance">Avant séance : énergie basse</string>
     <string id="Pup21Soir">Soir : difficulté à s'endormir</string>
 
     <string id="Pup22Title">Écrans</string>

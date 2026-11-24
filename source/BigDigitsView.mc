@@ -58,11 +58,11 @@ class BigDigitsView extends WatchUi.WatchFace {
     const C_ARC = 0x777777;
 
     // Popup : centre legerement plus haut que l'ancienne version, hauteur
-    // portee a 96 px apres measure (titre + 2 lignes + contexte + 7 points).
-    const POP_X = 14;
+    // portee a 112 px pour loger des carres de 30 px avec leurs lettres.
+    const POP_X = 8;
     const POP_Y = 88;
-    const POP_W = 232;
-    const POP_H = 96;
+    const POP_W = 244;
+    const POP_H = 112;
     const POP_MS = 25000;
 
     // Tokens de couleur par categorie (U19) — valeurs CIQ, pas de volatiles.
@@ -381,6 +381,15 @@ class BigDigitsView extends WatchUi.WatchFace {
         return res(Rez.Strings.Pup21ApresMidi);
     }
 
+    // Duree NSDR selon le moment : 30 min le matin, 20 l'apres-midi,
+    // 10 avant seance et 10 le soir (10-30 min dans le livre).
+    private function nsdrMessage(hour as Lang.Number) as Lang.String {
+        if (hour < 10) { return res(Rez.Strings.Pup21Msg30); }
+        if (hour >= 16 && hour < 20) { return res(Rez.Strings.Pup21Msg10Seance); }
+        if (hour >= 20) { return res(Rez.Strings.Pup21Msg10Soir); }
+        return res(Rez.Strings.Pup21Msg20);
+    }
+
     private function updatePopup(hour as Lang.Number, minute as Lang.Number, dow as Lang.Number,
                                  steps as Lang.Number, goal as Lang.Number, stress as Lang.Number,
                                  settings as System.DeviceSettings, info as Gregorian.Info) as Void {
@@ -434,7 +443,7 @@ class BigDigitsView extends WatchUi.WatchFace {
 
         // NSDR — 4 moments du livre, proxy face-only.
         if (stress > 50 || (profile != null && sleepMinutes() < 420 && hour >= 10 && hour <= 16)) {
-            setPopup(2100, res(Rez.Strings.Pup21Title), res(Rez.Strings.Pup21Msg),
+            setPopup(2100, res(Rez.Strings.Pup21Title), nsdrMessage(hour),
                      nsdrContext(hour), C_BORDER_NSDR);
             return;
         }
@@ -458,6 +467,20 @@ class BigDigitsView extends WatchUi.WatchFace {
         if (popupTimer != null) { popupTimer.stop(); }
     }
 
+    // Lettres LMMJVSD pour les 7 jours de la fenetre glissante.
+    // bit 0 = aujourd'hui, bit 6 = il y a six jours.
+    private function weekdayLetters() as Lang.Array {
+        var names = ["L", "M", "M", "J", "V", "S", "D"];
+        var out = [] as Lang.Array;
+        var dow = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day_of_week;
+        for (var i = 0; i < 7; i++) {
+            var gi = (dow - 1 - i) % 7;
+            if (gi < 0) { gi += 7; }
+            out.add(names[(gi + 6) % 7]);
+        }
+        return out;
+    }
+
     private function drawPopup(dc as Graphics.Dc) as Void {
         // U79 : surimpression, le cadran reste a sa place (aucun decalage).
         // Fond noir : la couleur de categorie est portee par la bordure (U19/U41).
@@ -474,39 +497,37 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(centerX, POP_Y + 20, Graphics.FONT_SMALL, activeTitle, justify);
 
-        var parts = wrapText(activeMsg, 18);
-        var lineY = POP_Y + 46;
+        var parts = wrapText(activeMsg, 30);
+        var lineY = POP_Y + 48;
         for (var i = 0; i < parts.size() && i < 2; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
-            if (part.length() > 18) { part = part.substring(0, 18); }
-            dc.drawText(centerX, lineY, Graphics.FONT_XTINY, part, justify);
-            lineY += 23;
+            if (part.length() > 30) { part = part.substring(0, 30); }
+            dc.drawText(centerX, lineY, Graphics.FONT_SYSTEM_XTINY, part, justify);
+            lineY += 20;
         }
 
-        // Contexte affiche uniquement si le message tient sur une ligne.
-        var ctx = activeCtx;
-        if (ctx == null) { ctx = "" as Lang.String; }
-        if (parts.size() < 2) {
-            dc.drawText(centerX, POP_Y + 84, Graphics.FONT_XTINY, ctx, justify);
-        }
-
-        // Barre de 7 carres d'habitude (U41 : le texte reste porteur du sens).
-        var side = 10;
-        var gap = 4;
+        // Barre de 7 carres avec la lettre du jour concerne au centre.
+        var side = 30;
+        var gap = 2;
         var total = 7 * side + 6 * gap;
         var bx = centerX - total / 2 + side / 2;
-        var by = POP_Y + 87;
+        var by = POP_Y + 92;
+        var letters = weekdayLetters();
         for (var i = 0; i < 7; i++) {
             var cx = bx + i * (side + gap);
-            var bit = 1 << i;
-            if ((activeBits & bit) != 0) {
+            var x = cx - side / 2;
+            var y = by - side / 2;
+            var done = (activeBits & (1 << i)) != 0;
+            if (done) {
                 dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
-                dc.fillRectangle(cx - side / 2, by - side / 2, side, side);
+                dc.fillRectangle(x, y, side, side);
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
             } else {
                 dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-                dc.drawRectangle(cx - side / 2, by - side / 2, side, side);
+                dc.drawRectangle(x, y, side, side);
             }
+            dc.drawText(cx, by, Graphics.FONT_XTINY, letters[i] as Lang.String, justify);
         }
     }
 

@@ -82,26 +82,27 @@ Chrono**.
 ## Rappels Protocoles (branche `protocol-popups`)
 
 Huit rappels sont dessinés **directement dans le cadran** sous forme d'un
-rectangle blanc avec titre, message et barre d'habitude sur 7 points. Le
-contenu vient de la base RAG Synthetix (EPUB *Protocols* de Huberman) et est
-intégré aux chaînes compilées : une watch face ne peut ni recevoir de texte par
-`Communications`, ni appeler `WatchUi.pushView`. Les données Garmin servent de
-déclencheur.
+rectangle noir à bordure colorée, avec titre, message sur une ligne et barre
+d'habitude de 7 carrés portant les lettres `LMMJVSD`. Le contenu vient de la
+base RAG Synthetix (EPUB *Protocols* de Huberman) et est intégré aux chaînes
+compilées : une watch face ne peut ni recevoir de texte par `Communications`,
+ni appeler `WatchUi.pushView`. Les données Garmin servent de déclencheur.
 
 | Heure | Rappel | Déclencheur |
 |---|---|---|
-| 07:00 | Réveil — 10-30 min de lumière au réveil | réveil configuré |
+| 07:00 | Réveil — Part regarder le lever de soleil | réveil configuré |
 | 12:30 | Repas — Marche 5-10 min après le repas | créneau fixe |
 | 15:00 | Stimulants — Plus de caféine ni d'alcool ce soir | coucher − 8 h |
-| 17:30 | Soleil — Va voir le coucher de soleil | position solaire NOAA |
+| 17:30 | Soleil — Part regarder le coucher de soleil | position solaire NOAA |
 | 18:30 | Pas — Marche 5 min, pas assez | pas < 85 % du stepGoal |
-| 21:00 | NSDR — 20 min de repos si stress élevé | stress > 50 |
+| 21:00 | NSDR — 30 / 20 / 10 / 10 min selon le moment | stress, sommeil, heure |
 | 22:00 | Écrans — Écrans off 1 h avant le coucher | coucher − 1 h |
 | 22:30 | Calme — 1-3 soupirs physiologiques | stress > 40 |
 
-Chaque rappel dure 25 s. Aucun buzz : `Toybox.Attention` est interdit dans une
-watch face (vérifié avec le binaire de debug). L'accusé de réception est visuel.
-Les passages sources sont archivés dans `docs/rag-messages.md`.
+Chaque rappel dure 25 s. Le cadran ne peut pas vibrer (`Toybox.Attention` est
+interdit dans une watch face) : le buzz est assuré par l'app compagnon
+`companion/`, voir section dédiée plus bas. Les passages sources sont archivés
+dans `docs/rag-messages.md`.
 
 Limites : textes figés à la compilation, pas de `pushView` depuis une watch
 face, pas de personnalisation des heures sans recompiler. Les 12 captures
@@ -128,48 +129,77 @@ symlinks isolés via `LD_LIBRARY_PATH` suffit. Charger l'app avec
 
 ## Design v2 (2026-11-24)
 
-Règles appliquées : `~/.config/opencode/design/UNIVERSAL_DESIGN_RULES.md` v1.8.0.
+Règles appliquées : `~/.config/opencode/design/UNIVERSAL_DESIGN_RULES.md` v1.9.0.
 Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
 `docs/design-measures.md` (hors dépôt, `~/.opencode-poc/`).
 
 - **Casse** : titre en Title Case, message en phrase (U01/U18). Accents `é è °`
   confirmés sur `fr955` (`accent-test.png`).
-- **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_XTINY`, contexte
-  affiché seulement si le message tient sur une ligne. Échelle fermée à 2 niveaux.
-- **Rectangle** (U79) : 232×96 à y=88, **fond noir et texte blanc**. Bordure
+- **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_SYSTEM_XTINY`,
+  contexte affiché seulement si le message tient sur une ligne. Échelle fermée.
+- **Rectangle** (U79) : 244×112 à (8,88), **fond noir et texte blanc**. Bordure
   pleine de 3 px colorée par catégorie (U19/U41) : orange = lumière,
-  bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme. Le titre
-  texte reste porteur du sens si la couleur n'est pas rendue.
-- **Centrage** : titre, deux lignes de message et barre d'habitude sont centrés
-  horizontalement (`TEXT_JUSTIFY_CENTER`) et verticalement
-  (`TEXT_JUSTIFY_VCENTER`). Interligne porté à 23 px CIQ.
-- **Habitude (forme)** : 7 carrés de 10 px, vides (contour blanc) si non fait,
-  pleins de la couleur de bordure si fait. Exemple `docs/screens/habit-partiel-popup.png`.
+  bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme.
+- **Centrage** : titre, message et barre centrés horizontalement et
+  verticalement (`TEXT_JUSTIFY_CENTER | TEXT_JUSTIFY_VCENTER`).
+- **Habitude (forme)** : 7 carrés de 30 px, espacés de 2 px, avec au centre la
+  lettre du jour concerné (`LMMJVSD`, bit 0 = aujourd'hui). Plein = couleur de
+  bordure et lettre noire ; vide = contour blanc et lettre blanche.
+  Exemple : `docs/screens/habit-partiel-popup.png`.
 - **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
 - **Wrap** (U73) : `wrapText()` démarre avec un tableau vide. Une entrée `""`
   initiale masquait la première ligne et tronquait tous les messages ; la
-  découpe est à 18 caractères (~135 px CIQ en `FONT_XTINY` pour 216 px utiles)
-  et le titre est espacé du message (6 px CIQ au lieu de 2). Défauts corrigés
-  après relecture des captures.
+  la découpe est à 36 caractères avec `FONT_SYSTEM_XTINY` dans 238 px utiles,
+  ce qui fait tenir les phrases sur une seule ligne. Défauts corrigés après
+  relecture des captures.
 - **Habitude** : barre de 7 carrés, fenêtre glissante 7 jours, un seul appui par
   jour via `WatchFaceDelegate` (bouton haut droit). Score persisté dans
   `Application.Storage`. Un second appui est ignoré.
 - **Checks réels** : pas < 85 % du `stepGoal`, stress > 50, position solaire NOAA
-  en cache (5 lectures/jour max, recalcul si déplacement > 5 km), réveil et
-  coucher dérivés du profil, caféine/alcool à coucher−8 h, écrans à coucher−1 h.
-- **NSDR** : 4 moments du livre (`Matin`, `Après-midi`, `Avant séance`, `Soir`)
-  choisis par les données accessibles à la face. Aucune prétention à mesurer la
-  dette de sommeil : les champs qualité/durée mesurées ne sont pas exposés par
-  Connect IQ 9.3.0 à une watch face (`notMeasured`).
+  en cache, réveil et coucher dérivés du profil, caféine/alcool à coucher−8 h,
+  écrans à coucher−1 h. L'app compagnon raffine le coucher via
+  `Weather.getSunset()` et le stress via `SensorHistory.getStressHistory()`.
+- **NSDR** : 4 moments du livre avec durées **30 min le matin, 20 min
+  l'après-midi, 10 min avant séance, 10 min le soir** (10–30 min dans le livre ;
+  le 10 min avant séance est un choix de design, pas une donnée source).
 
 **Limite structurelle confirmée par le binaire de debug** : `Toybox.Attention`
 est interdit dans une watch face — aucun buzz n'est possible depuis le cadran.
-L'accusé de réception est donc visuel (barre de points) et non haptique. Le
-simulateur ne permet pas de vérifier l'appui physique sur la montre : `notMeasured`.
+L'app compagnon `companion/` apporte le buzz, mais ayant un app ID distinct elle
+ne partage pas `Application.Storage` avec le cadran : le score d'habitude reste
+propre à la face. Le simulateur ne permet pas de vérifier le buzz physique ni
+l'appui du bouton : `notMeasured`.
 
 Preuves visuelles : `docs/screens/` (12 captures relues, 8 messages + 4
 variantes). `docs/popup-design-v2.png` est conservée comme témoin de l'ancien
 découpage tronqué, avant correction de `wrapText`.
+
+## App compagnon — buzz des protocoles
+
+`companion/` est une **watch-app** Connect IQ séparée (`type="watch-app"`, app
+ID dédié) qui fournit le retour haptique impossible depuis le cadran :
+
+- `Background.registerForTemporalEvent()` chaîné : un seul événement actif,
+  replanifié à chaque réveil vers le prochain créneau utile ;
+- un seul buzz court et discret `VibeProfile(60, 120)`, au plus une fois par
+  jour et par slot, sous réserve de `Attention has :vibrate` et de
+  `DeviceSettings.vibrateOn` ;
+- algorithmes raffinés par les données réservées aux watch-apps :
+  `Weather.getSunset()` pour le coucher, `SensorHistory.getStressHistory()` pour
+  NSDR et Calme, `UserProfile` pour le sommeil et le coucher ;
+- aucun `WatchUi.pushView` : l'app reste haptique, les popups visuels restent
+  dans le cadran.
+
+```bash
+cd companion && ./build.sh
+# -> companion/bin/bigdigits-buzz-fr955.prg
+```
+
+Copier les deux binaires dans `GARMIN/Apps/` : `bigdigits-fr955.prg` (cadran)
+et `bigdigits-buzz-fr955.prg` (app), puis lancer **Protocoles Buzz** une fois
+pour enregistrer le premier événement temporel. Le buzz n'est pas vérifiable
+dans le simulateur Connect IQ (`notMeasured`); seule la compilation prouve
+l'enregistrement de `Attention` auprès du SDK.
 
 ## Compilation
 
