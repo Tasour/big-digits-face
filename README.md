@@ -81,56 +81,44 @@ Chrono**.
 
 ## Rappels Protocoles (branche `protocol-popups`)
 
-Onze rappels sont dessinés **directement dans le cadran** sous forme d'un
-rectangle blanc avec titre, message et un buzz unique. Le contenu est généré
-depuis la base de connaissances RAG (EPUB *Protocols* de Huberman) et intégré
-aux ressources `resources/strings/strings.xml` : les watch faces ne peuvent pas
-recevoir de texte par `Communications`, et `WatchUi.pushView` est interdit
-(`OperationNotAllowedException`). Les données Garmin ne servent que de
-déclencheur (nombre de pas à 18 h 30).
+Huit rappels sont dessinés **directement dans le cadran** sous forme d'un
+rectangle blanc avec titre, message et barre d'habitude sur 7 points. Le
+contenu vient de la base RAG Synthetix (EPUB *Protocols* de Huberman) et est
+intégré aux chaînes compilées : une watch face ne peut ni recevoir de texte par
+`Communications`, ni appeler `WatchUi.pushView`. Les données Garmin servent de
+déclencheur.
 
-| Heure | Rappel |
-|---|---|
-| 07:00 | 10-30 MIN DE LUMIERE AU REVEIL |
-| 08:00 | Protocole du jour (cyclique lun→dim, 7 variantes) |
-| 12:30 | MARCHE 5-10 MIN APRES LE REPAS |
-| 15:00 | PLUS DE CAFEINE NI D ALCOOL CE SOIR |
-| 17:30 | VA VOIR LE COUCHE DE SOLEIL / 10-15 MIN FACE A L OUEST |
-| 18:30 | PAS ASSEZ DE PAS — MARCHE 5 MIN (si pas < 7 000), sinon OBJECTIF PAS ATTEINT |
-| 20:30 | 4 MOUVEMENTS 2-4 FOIS PAR SEMAINE |
-| 21:00 | NSDR 20 MIN SI SOMMEIL INSUFFISANT |
-| 21:30 | 18-20 C — EXTREMITES CHAUDES |
-| 22:00 | ECRANS OFF 1 H AVANT LE COUCHER |
-| 22:30 | 1-3 SOUPIRS PHYSIOLOGIQUES |
+| Heure | Rappel | Déclencheur |
+|---|---|---|
+| 07:00 | Réveil — 10-30 min de lumière au réveil | réveil configuré |
+| 12:30 | Repas — Marche 5-10 min après le repas | créneau fixe |
+| 15:00 | Stimulants — Plus de caféine ni d'alcool ce soir | coucher − 8 h |
+| 17:30 | Soleil — Va voir le coucher de soleil | position solaire NOAA |
+| 18:30 | Pas — Marche 5 min, pas assez | pas < 85 % du stepGoal |
+| 21:00 | NSDR — 20 min de repos si stress élevé | stress > 50 |
+| 22:00 | Écrans — Écrans off 1 h avant le coucher | coucher − 1 h |
+| 22:30 | Calme — 1-3 soupirs physiologiques | stress > 40 |
 
-Chaque message reste affiché deux minutes. La vibration est protégée par
-`Attention has :vibrate` et respecte `DeviceSettings.vibrateOn` ; sur
-Forerunner le motif de vibration n'est pas supporté : un seul buzz, cycle fixe.
+Chaque rappel dure 25 s. Aucun buzz : `Toybox.Attention` est interdit dans une
+watch face (vérifié avec le binaire de debug). L'accusé de réception est visuel.
 Les passages sources sont archivés dans `docs/rag-messages.md`.
 
-Limites : textes figés à la compilation (pas de mise à jour dynamique), pas de
-`pushView` depuis une watch face, pas de personnalisation des heures sans
-recompiler.
+Limites : textes figés à la compilation, pas de `pushView` depuis une watch
+face, pas de personnalisation des heures sans recompiler. Les 12 captures
+(8 messages + 4 variantes) sont indexées dans `docs/screens/README.md`.
 
-### Preuve visuelle (simulateur)
+### Méthode de capture
 
-Captures relues sur le device `fr955` (cadran de test temporaire forçant le
-créneau, car le champ « Time Simulation » n'entre pas 17:30 de façon fiable) :
+Les captures sont prises sur le device `fr955` avec un cadran de test temporaire
+forçant le créneau : le champ « Time Simulation » du simulateur n'entre pas
+17:30 de façon fiable. Le cadran de test appelle `setPopup()` avec les vraies
+chaînes compilées ; le binaire livré reste compilé depuis le code non modifié.
 
-| Fichier | Créneau | Contenu lisible |
-|---|---|---|
-| `docs/popup-0700-reveil.png` | 07:00 | REVEIL / 10-30 MIN DE LUMIE... |
-| `docs/popup-1730-coucher.png` | 17:30 | SOLEIL / VA VOIR LE COUCH / FACE A L OUEST |
-| `docs/popup-2230-calm.png` | 22:30 | CALME / 1-3 SOUPIRS |
-
-Le binaire livré (`bin/bigdigits-fr955.prg`) est compilé depuis le code non
-modifié : le test n'a servi qu'à visualiser le rendu du popup.
-
-Deux défauts observés puis corrigés : le premier crop de preuve montrait le gizmo
-Blender au lieu du cadran ; et le texte débordait du rectangle sur les messages
-longs. `drawPopup` applique désormais un wrap à 16 caractères (`FONT_SMALL`) et
-tronque le sous-titre à 14 (`FONT_TINY`). Les messages les plus longs ont été
-raccourcis dans `strings.xml`.
+Trois défauts observés puis corrigés au fil des captures : un crop montrait le
+gizmo Blender au lieu du cadran ; le texte débordait du rectangle sur les
+messages longs ; enfin `wrapText()` démarrait avec une entrée vide, ce qui
+masquait la première ligne et tronquait le message. Le wrap est à 18 caractères
+et les messages sont dimensionnés pour deux lignes. Voir `docs/screens/`.
 
 Pour lancer le simulateur sur Arch : le binaire 9.3.0 demande les SONAME legacy
 `libwebkit2gtk-4.0.so.37`, `libjavascriptcoregtk-4.0.so.18`, `libsoup-2.4.so.1`
@@ -148,10 +136,15 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
   confirmés sur `fr955` (`accent-test.png`).
 - **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_TINY`, contexte
   affiché seulement si le message tient sur une ligne. Échelle fermée à 2 niveaux.
-- **Rectangle** (U79) : 232×80 à y=88, bordure colorée par catégorie (U19/U41) :
+- **Rectangle** (U79) : 232×96 à y=88, bordure colorée par catégorie (U19/U41) :
   orange = lumière, bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme.
   Le titre texte reste porteur du sens si la couleur n'est pas rendue.
 - **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
+- **Wrap** (U73) : `wrapText()` démarre avec un tableau vide. Une entrée `""`
+  initiale masquait la première ligne et tronquait tous les messages ; la
+  découpe est à 18 caractères (196 px CIQ pour 216 px utiles) et le titre est
+  espacé du message (6 px CIQ au lieu de 2). Défauts corrigés après relecture
+  des captures.
 - **Habitude** : barre de 7 points, fenêtre glissante 7 jours, un seul appui par
   jour via `WatchFaceDelegate` (bouton haut droit). Score persisté dans
   `Application.Storage`. Un second appui est ignoré.
@@ -168,7 +161,9 @@ est interdit dans une watch face — aucun buzz n'est possible depuis le cadran.
 L'accusé de réception est donc visuel (barre de points) et non haptique. Le
 simulateur ne permet pas de vérifier l'appui physique sur la montre : `notMeasured`.
 
-Preuve visuelle : `docs/popup-design-v2.png`.
+Preuves visuelles : `docs/screens/` (12 captures relues, 8 messages + 4
+variantes). `docs/popup-design-v2.png` est conservée comme témoin de l'ancien
+découpage tronqué, avant correction de `wrapText`.
 
 ## Compilation
 

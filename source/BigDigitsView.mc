@@ -58,11 +58,11 @@ class BigDigitsView extends WatchUi.WatchFace {
     const C_ARC = 0x777777;
 
     // Popup : centre legerement plus haut que l'ancienne version, hauteur
-    // portee a 80 px apres measure (titre + 2 lignes + contexte + 7 points).
+    // portee a 96 px apres measure (titre + 2 lignes + contexte + 7 points).
     const POP_X = 14;
     const POP_Y = 88;
     const POP_W = 232;
-    const POP_H = 80;
+    const POP_H = 96;
     const POP_MS = 25000;
 
     // Tokens de couleur par categorie (U19) — valeurs CIQ, pas de volatiles.
@@ -467,12 +467,13 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
         dc.drawText(POP_X + 8, POP_Y + 2, Graphics.FONT_SMALL, activeTitle, Graphics.TEXT_JUSTIFY_LEFT);
 
-        var parts = wrapText(activeMsg, 16);
-        var ty = POP_Y + 24;
+        var parts = wrapText(activeMsg, 18);
+        // Le titre FONT_SMALL descend jusqu'a ~POP_Y+20 : 24 ne laissait que 2 px CIQ.
+        var ty = POP_Y + 28;
         for (var i = 0; i < parts.size() && i < 2; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
-            if (part.length() > 16) { part = part.substring(0, 16); }
+            if (part.length() > 18) { part = part.substring(0, 18); }
             dc.drawText(POP_X + 8, ty, Graphics.FONT_TINY, part, Graphics.TEXT_JUSTIFY_LEFT);
             ty += 17;
         }
@@ -481,7 +482,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         var ctx = activeCtx;
         if (ctx == null) { ctx = "" as Lang.String; }
         if (parts.size() < 2) {
-            dc.drawText(POP_X + 8, POP_Y + 44, Graphics.FONT_TINY, ctx, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(POP_X + 8, POP_Y + 72, Graphics.FONT_TINY, ctx, Graphics.TEXT_JUSTIFY_LEFT);
         }
 
         // Barre de 7 points d'habitude (U41 : le texte reste porteur du sens).
@@ -499,9 +500,11 @@ class BigDigitsView extends WatchUi.WatchFace {
     }
 
     // Wrap sur frontiere de mot. Un mot plus long que maxLen est coupe avec "…".
+    // Le tableau demarre vide : une entree "" decalerait toutes les lignes et
+    // ferait disparaitre la premiere ligne du message (defaut observe en capture).
     private function wrapText(text as Lang.String, maxLen as Lang.Number) as Lang.Array {
         if (text == null) { return [""] as Lang.Array; }
-        var lines = [""] as Lang.Array;
+        var lines = [] as Lang.Array;
         var current = "" as Lang.String;
         var word = "" as Lang.String;
         for (var i = 0; i <= text.length(); i++) {
