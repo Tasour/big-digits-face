@@ -138,6 +138,38 @@ Pour lancer le simulateur sur Arch : le binaire 9.3.0 demande les SONAME legacy
 symlinks isolés via `LD_LIBRARY_PATH` suffit. Charger l'app avec
 `monkeydo <prg> fr955` (l'argument .prg de `simulator` seul ne la charge pas).
 
+## Design v2 (2026-11-24)
+
+Règles appliquées : `~/.config/opencode/design/UNIVERSAL_DESIGN_RULES.md` v1.8.0.
+Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
+`docs/design-measures.md` (hors dépôt, `~/.opencode-poc/`).
+
+- **Casse** : titre en Title Case, message en phrase (U01/U18). Accents `é è °`
+  confirmés sur `fr955` (`accent-test.png`).
+- **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_TINY`, contexte
+  affiché seulement si le message tient sur une ligne. Échelle fermée à 2 niveaux.
+- **Rectangle** (U79) : 232×80 à y=88, bordure colorée par catégorie (U19/U41) :
+  orange = lumière, bleu = marche/pas, violet = stimulants/soleil/NSDR/écrans/calme.
+  Le titre texte reste porteur du sens si la couleur n'est pas rendue.
+- **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
+- **Habitude** : barre de 7 points, fenêtre glissante 7 jours, un seul appui par
+  jour via `WatchFaceDelegate` (bouton haut droit). Score persisté dans
+  `Application.Storage`. Un second appui est ignoré.
+- **Checks réels** : pas < 85 % du `stepGoal`, stress > 50, position solaire NOAA
+  en cache (5 lectures/jour max, recalcul si déplacement > 5 km), réveil et
+  coucher dérivés du profil, caféine/alcool à coucher−8 h, écrans à coucher−1 h.
+- **NSDR** : 4 moments du livre (`Matin`, `Après-midi`, `Avant séance`, `Soir`)
+  choisis par les données accessibles à la face. Aucune prétention à mesurer la
+  dette de sommeil : les champs qualité/durée mesurées ne sont pas exposés par
+  Connect IQ 9.3.0 à une watch face (`notMeasured`).
+
+**Limite structurelle confirmée par le binaire de debug** : `Toybox.Attention`
+est interdit dans une watch face — aucun buzz n'est possible depuis le cadran.
+L'accusé de réception est donc visuel (barre de points) et non haptique. Le
+simulateur ne permet pas de vérifier l'appui physique sur la montre : `notMeasured`.
+
+Preuve visuelle : `docs/popup-design-v2.png`.
+
 ## Compilation
 
 Prérequis :

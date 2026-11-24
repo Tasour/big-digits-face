@@ -8,6 +8,6 @@ class BigDigitsApp extends Application.AppBase {
     }
 
     function getInitialView() {
-        return [ new BigDigitsView() ];
+        return [ new BigDigitsView(), new BigDigitsDelegate() ];
     }
 }

@@ -2,47 +2,45 @@
     <string id="AppName">Big Digits</string>
 
     <!-- Rappels Protocoles — source unique : RAG Synthetix / EPUB Huberman.
-         Textes en majuscules ASCII : police systeme Connect IQ, lisibilite MIP. -->
-    <string id="Pup07Title">REVEIL</string>
-    <string id="Pup07Msg">10-30 MIN DE LUMIERE AU REVEIL</string>
+         Casse : Titre en Title Case, message en phrase (U01/U03/U18).
+         Accents confirmes sur fr955 avec FONT_TINY (capture accent-test.png). -->
 
-    <string id="Pup08Title">PROGRAMME DU JOUR</string>
+    <string id="Pup07Title">Réveil</string>
+    <string id="Pup07Msg">10-30 min de lumière au réveil</string>
+    <string id="Pup07Ctx">Lever du soleil ou 10 000 lux</string>
 
-    <string id="Pup12Title">REPAS</string>
-    <string id="Pup12Msg">MARCHE 5-10 MIN APRES LE REPAS</string>
+    <string id="Pup1230Title">Repas</string>
+    <string id="Pup1230Msg">Marche 5-10 min après le repas</string>
+    <string id="Pup1230Ctx">Glucose meilleur dans les 30 min</string>
 
-    <string id="Pup15Title">STIMULANTS</string>
-    <string id="Pup15Msg">PLUS DE CAFEINE NI D ALCOOL CE SOIR</string>
+    <string id="Pup15Title">Stimulants</string>
+    <string id="Pup15Msg">Plus de caféine ni d'alcool ce soir</string>
+    <string id="Pup15Ctx">Coucher dans 8 h</string>
 
-    <string id="Pup17Title">SOLEIL</string>
-    <string id="Pup17Msg">VA VOIR LE COUCHE DE SOLEIL</string>
-    <!-- 14 caracteres max dans le rectangle (POP_W=232, FONT_TINY). -->
-    <string id="Pup17Sub">FACE A L OUEST</string>
+    <string id="Pup17Title">Soleil</string>
+    <string id="Pup17Msg">Va voir le coucher de soleil</string>
+    <string id="Pup17Ctx">Coucher solaire calculé</string>
 
-    <string id="Pup18Title">PAS</string>
-    <string id="Pup18Msg">PAS ASSEZ DE PAS - MARCHE 5 MIN</string>
-    <string id="Pup18Ok">OBJECTIF PAS ATTEINT</string>
-
-    <string id="Pup20Title">MOBILITE</string>
-    <string id="Pup20Msg">4 MOUVEMENTS 2-4 FOIS PAR SEMAINE</string>
+    <string id="Pup18Title">Pas</string>
+    <string id="Pup18Msg">Marche 5 min, objectif non atteint</string>
+    <string id="Pup18Ok">Objectif pas atteint</string>
+    <string id="Pup18Ctx">Moins de 85 % du stepGoal</string>
 
     <string id="Pup21Title">NSDR</string>
-    <string id="Pup21Msg">NSDR 20 MIN SI SOMMEIL INSUFFISANT</string>
+    <string id="Pup21Msg">20 min de repos si stress élevé</string>
+    <string id="Pup21Matin">Matin : réveil incomplet</string>
+    <string id="Pup21ApresMidi">Après-midi : à la place d'une sieste</string>
+    <string id="Pup21Seance">Avant séance : energia basse</string>
+    <string id="Pup21Soir">Soir : difficulté à s'endormir</string>
 
-    <string id="Pup2130Title">CHAMBRE</string>
-    <string id="Pup2130Msg">18-20 C - EXTREMITES CHAUDES</string>
+    <string id="Pup22Title">Écrans</string>
+    <string id="Pup22Msg">Écrans off 1 h avant le coucher</string>
+    <string id="Pup22Ctx">Coucher dans 1 h</string>
 
-    <string id="Pup22Title">ECRANS</string>
-    <string id="Pup22Msg">ECRANS OFF 1 H AVANT LE COUCHER</string>
+    <string id="Pup2230Title">Calme</string>
+    <string id="Pup2230Msg">1-3 soupirs physiologiques</string>
+    <string id="Pup2230Ctx">Stress élevé détecté</string>
 
-    <string id="Pup2230Title">CALME</string>
-    <string id="Pup2230Msg">1-3 SOUPIRS</string>
-
-    <string id="Day1">JOUR 1 CARDIO 45-75 MIN DOUX</string>
-    <string id="Day2">JOUR 2 BAS DU CORPS 4-9 SERIES</string>
-    <string id="Day3">JOUR 3 REPOS - 7000 PAS</string>
-    <string id="Day4">JOUR 4 TORSE 4-9 SERIES</string>
-    <string id="Day5">JOUR 5 CARDIO 25-30 MIN MODERE</string>
-    <string id="Day6">JOUR 6 CARDIO 6-17 MIN INTENSE</string>
-    <string id="Day7">JOUR 7 EPAULES BRAS CORE</string>
+    <string id="HabitDone">Fait aujourd'hui</string>
+    <string id="HabitEmpty">--</string>
 </strings>

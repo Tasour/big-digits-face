@@ -1,25 +1,27 @@
 using Toybox.ActivityMonitor;
 using Toybox.Application;
-using Toybox.Attention;
 using Toybox.Graphics;
 using Toybox.Lang;
 using Toybox.Math;
+using Toybox.Position;
 using Toybox.System;
 using Toybox.Time;
 using Toybox.Time.Gregorian;
+using Toybox.Timer;
 using Toybox.UserProfile;
 using Toybox.WatchUi;
 
-// Big Digits — direction B5 « data latérale + secondes en bas ».
+var gBigDigitsView as BigDigitsView or Null;
+
+// Big Digits — cadran "gros chiffres" + rappels Protocoles.
 //
-//   MAR 3 NOV
-//  kcal 1 2 pas
-//  ...  3 4
-//       [ss]
-//
-// Bloc 184 (2×90 + 4), aucun rognage ; calories verticales à gauche,
-// pas verticaux à droite ; secondes horizontales en bas au centre ;
-// date en police pixel 5×7 blanche ; arcs segmentés.
+// Source des messages : base RAG Synthetix / EPUB Huberman (docs/rag-messages.md).
+// Regles design : ~/.config/opencode/design/UNIVERSAL_DESIGN_RULES.md v1.8.0.
+//   U03/U33 : titre et message en FONT_SMALL, contexte en FONT_TINY (echelle fermee)
+//   U41     : categorie portee par le titre texte ET par la bordure coloree
+//   U62     : rappel non bloquant, 25 s
+//   U73     : wrap sur frontiere de mot, jamais de coupure au milieu
+//   U79     : rectangle en surimpression, sans decalage des chiffres de l'heure
 class BigDigitsView extends WatchUi.WatchFace {
 
     const CELL = 90;
@@ -31,8 +33,6 @@ class BigDigitsView extends WatchUi.WatchFace {
     const Y_TOP = 38;
     const Y_BOTTOM = 132;
 
-    // Secondes en bas au centre : 2 chiffres 10×14, trait 2, écart 2.
-    // Même hauteur (14 px) et même graisse que la date pixel.
     const SEC_W = 10;
     const SEC_H = 14;
     const SEC_S = 2;
@@ -44,7 +44,6 @@ class BigDigitsView extends WatchUi.WatchFace {
     const DOT_X = 105;
     const DOT_Y = 239;
 
-    // Données verticales : calories à gauche, pas à droite.
     const DATA_LEFT_X = 22;
     const DATA_RIGHT_X = 238;
     const DATA_CY = 132;
@@ -58,28 +57,42 @@ class BigDigitsView extends WatchUi.WatchFace {
     const C_DATA = 0x909090;
     const C_ARC = 0x777777;
 
-    // Rappels Protocoles : rectangle dessine dans le cadran.
-    // Une watch face ne peut pas appeler WatchUi.pushView (OperationNotAllowedException),
-    // donc le message est dessine directement au-dessus du cadran.
+    // Popup : centre legerement plus haut que l'ancienne version, hauteur
+    // portee a 80 px apres measure (titre + 2 lignes + contexte + 7 points).
     const POP_X = 14;
-    const POP_Y = 66;
+    const POP_Y = 88;
     const POP_W = 232;
-    const POP_H = 96;
-    const POP_WINDOW = 2; // minutes
+    const POP_H = 80;
+    const POP_MS = 25000;
+
+    // Tokens de couleur par categorie (U19) — valeurs CIQ, pas de volatiles.
+    const C_BORDER_LUMIERE = Graphics.COLOR_ORANGE;
+    const C_BORDER_MARCHE = Graphics.COLOR_BLUE;
+    const C_BORDER_STIMULANTS = Graphics.COLOR_PURPLE;
+    const C_BORDER_SOLEIL = Graphics.COLOR_PURPLE;
+    const C_BORDER_NSDR = Graphics.COLOR_PURPLE;
+    const C_BORDER_ECRANS = Graphics.COLOR_PURPLE;
+    const C_BORDER_CALME = Graphics.COLOR_PURPLE;
 
     private var lastVibKey as Lang.Number = -1;
+    private var activeKey as Lang.Number = -1;
+    private var popupStart as Lang.Number = 0;
+    private var activeColor as Lang.Number = Graphics.COLOR_LT_GRAY;
+    private var activeTitle as Lang.String = "";
+    private var activeMsg as Lang.String = "";
+    private var activeCtx as Lang.String = "";
+    private var activeBits as Lang.Number = 0;
+    private var popupTimer as Timer.Timer or Null;
 
     function initialize() {
         WatchFace.initialize();
+        gBigDigitsView = self;
     }
 
-    function onLayout(dc as Graphics.Dc) as Void {
-    }
-
-    function onShow() as Void {
-    }
-
+    function onLayout(dc as Graphics.Dc) as Void {}
+    function onShow() as Void {}
     function onHide() as Void {
+        if (popupTimer != null) { popupTimer.stop(); }
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
@@ -114,16 +127,14 @@ class BigDigitsView extends WatchUi.WatchFace {
 
         var steps = 0;
         var kcal = 0;
+        var stepGoal = 0;
+        var stress = 0;
         var activity = ActivityMonitor.getInfo();
         if (activity != null) {
-            var activitySteps = activity.steps;
-            if (activitySteps != null) {
-                steps = activitySteps as Lang.Number;
-            }
-            var activityCalories = activity.calories;
-            if (activityCalories != null) {
-                kcal = activityCalories as Lang.Number;
-            }
+            if (activity.steps != null) { steps = activity.steps as Lang.Number; }
+            if (activity.calories != null) { kcal = activity.calories as Lang.Number; }
+            if (activity.stepGoal != null) { stepGoal = activity.stepGoal as Lang.Number; }
+            if (activity.stressScore != null) { stress = activity.stressScore as Lang.Number; }
         }
 
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
@@ -139,8 +150,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         var dayStr = info.day.format("%d");
         var monStr = months[monIdx];
 
-        // Connect IQ ne fournit que les calories totales (BMR + actif).
-        // On estime les calories de repos depuis le profil et on les soustrait.
         var profile = UserProfile.getProfile();
         if (profile != null) {
             var birthYear = profile.birthYear;
@@ -149,177 +158,371 @@ class BigDigitsView extends WatchUi.WatchFace {
             var gender = profile.gender;
             if (birthYear != null && height != null && weight != null && gender != null) {
                 var age = info.year - (birthYear as Lang.Number);
-                var h = height as Lang.Number;
+                var hProfile = height as Lang.Number;
                 var w = (weight as Lang.Number) / 1000.0;
                 var rest = 0.0;
                 if (gender == UserProfile.GENDER_MALE) {
-                    rest = 5.2 - 6.116 * age + 7.628 * h + 12.2 * w;
+                    rest = 5.2 - 6.116 * age + 7.628 * hProfile + 12.2 * w;
                 } else {
-                    rest = -197.6 - 6.116 * age + 7.628 * h + 12.2 * w;
+                    rest = -197.6 - 6.116 * age + 7.628 * hProfile + 12.2 * w;
                 }
                 rest = Math.round((info.hour * 60 + info.min) * rest / 1440).toNumber();
                 kcal = kcal - rest;
-                if (kcal < 0) {
-                    kcal = 0;
-                }
+                if (kcal < 0) { kcal = 0; }
             }
         }
 
-        drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr, kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
-        showProtocolPopup(dc, hour, minute, dowIdx, steps, settings);
+        drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr,
+                 kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
+
+        updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
+        if (activeKey >= 0) {
+            drawPopup(dc);
+        }
     }
 
-    // Les secondes sont le seul élément qui change chaque seconde.
+    // Les secondes sont le seul element qui change chaque seconde.
     function onPartialUpdate(dc as Graphics.Dc) as Void {
         var clock = System.getClockTime();
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillRectangle(SEC_X - 2, SEC_Y - 2, SEC_W * 2 + SEC_GAP + 4, SEC_H + 4);
         drawSeconds(dc, clock.sec);
+        if (activeKey >= 0) {
+            var nowMs = Time.now().value() * 1000;
+            if (nowMs - popupStart >= POP_MS) {
+                activeKey = -1;
+                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+                dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
+                WatchUi.requestUpdate();
+            }
+        }
     }
 
     // --- Rappels Protocoles -----------------------------------------------
-    // Contenu genere depuis le RAG Synthetix / EPUB Huberman, integre aux
-    // ressources du cadran (les watch faces ne peuvent pas recevoir de texte
-    // via Communications). Les donnees Garmin ne servent que de declencheur.
 
     private function res(id as Lang.ResourceId) as Lang.String {
         return Application.loadResource(id) as Lang.String;
     }
 
-    private function dayMessage(dow as Lang.Number) as Lang.String {
-        // Gregorian.day_of_week : 1=DIM, 2=LUN, ... 7=SAM
-        if (dow == 1) { return res(Rez.Strings.Day7); }
-        if (dow == 2) { return res(Rez.Strings.Day1); }
-        if (dow == 3) { return res(Rez.Strings.Day2); }
-        if (dow == 4) { return res(Rez.Strings.Day3); }
-        if (dow == 5) { return res(Rez.Strings.Day4); }
-        if (dow == 6) { return res(Rez.Strings.Day5); }
-        return res(Rez.Strings.Day6);
+    private function store(key as Lang.String, value as Lang.Number) as Void {
+        Application.Storage.setValue(key, value);
     }
 
-    private function inWindow(minute as Lang.Number, target as Lang.Number) as Lang.Boolean {
-        return (minute >= target) && (minute < target + POP_WINDOW);
+    private function load(key as Lang.String) as Lang.Number {
+        var v = Application.Storage.getValue(key);
+        if (v != null && v instanceof Lang.Number) { return v as Lang.Number; }
+        return 0;
     }
 
-    private function showProtocolPopup(dc as Graphics.Dc, hour as Lang.Number, minute as Lang.Number, dow as Lang.Number, steps as Lang.Number, settings as System.DeviceSettings) as Void {
-        var key = -1;
-        var title = "";
-        var msg = "";
-        var sub = "";
+    private function dayIndex() as Lang.Number {
+        return Time.now().value() / 86400;
+    }
 
-        if (hour == 7 && inWindow(minute, 0)) {
-            key = 700;
-            title = res(Rez.Strings.Pup07Title);
-            msg = res(Rez.Strings.Pup07Msg);
-        } else if (hour == 8 && inWindow(minute, 0)) {
-            key = 800;
-            title = res(Rez.Strings.Pup08Title);
-            msg = dayMessage(dow);
-        } else if (hour == 12 && inWindow(minute, 30)) {
-            key = 1230;
-            title = res(Rez.Strings.Pup12Title);
-            msg = res(Rez.Strings.Pup12Msg);
-        } else if (hour == 15 && inWindow(minute, 0)) {
-            key = 1500;
-            title = res(Rez.Strings.Pup15Title);
-            msg = res(Rez.Strings.Pup15Msg);
-        } else if (hour == 17 && inWindow(minute, 30)) {
-            key = 1730;
-            title = res(Rez.Strings.Pup17Title);
-            msg = res(Rez.Strings.Pup17Msg);
-            sub = res(Rez.Strings.Pup17Sub);
-        } else if (hour == 18 && inWindow(minute, 30)) {
-            key = 1830;
-            title = res(Rez.Strings.Pup18Title);
-            if (steps < 7000) {
-                msg = res(Rez.Strings.Pup18Msg);
-            } else {
-                msg = res(Rez.Strings.Pup18Ok);
-            }
-        } else if (hour == 20 && inWindow(minute, 30)) {
-            key = 2030;
-            title = res(Rez.Strings.Pup20Title);
-            msg = res(Rez.Strings.Pup20Msg);
-        } else if (hour == 21 && inWindow(minute, 0)) {
-            key = 2100;
-            title = res(Rez.Strings.Pup21Title);
-            msg = res(Rez.Strings.Pup21Msg);
-        } else if (hour == 21 && inWindow(minute, 30)) {
-            key = 2130;
-            title = res(Rez.Strings.Pup2130Title);
-            msg = res(Rez.Strings.Pup2130Msg);
-        } else if (hour == 22 && inWindow(minute, 0)) {
-            key = 2200;
-            title = res(Rez.Strings.Pup22Title);
-            msg = res(Rez.Strings.Pup22Msg);
-        } else if (hour == 22 && inWindow(minute, 30)) {
-            key = 2230;
-            title = res(Rez.Strings.Pup2230Title);
-            msg = res(Rez.Strings.Pup2230Msg);
+    private function habitBits(key as Lang.Number) as Lang.Number {
+        var k = "habit.bits." + key.format("%d");
+        var kd = "habit.day." + key.format("%d");
+        var today = dayIndex();
+        var last = load(kd);
+        var bits = load(k);
+        if (last == 0 || last < today - 1) {
+            bits = 0;
+        } else if (last < today) {
+            bits = (bits << 1) & 0x7F;
         }
+        return bits;
+    }
 
-        if (key < 0) {
+    // Accuse de reception via bouton START/ENTER. Un seul appui par jour.
+    public function markDone() as Lang.Boolean {
+        if (activeKey < 0) { return false; }
+        var k = "habit.bits." + activeKey.format("%d");
+        var kd = "habit.day." + activeKey.format("%d");
+        var today = dayIndex();
+        if (load(kd) == today) {
+            return true;
+        }
+        var bits = habitBits(activeKey) | 1;
+        store(k, bits);
+        store(kd, today);
+        activeBits = bits;
+        popupStart = Time.now().value() * 1000;
+        WatchUi.requestUpdate();
+        return true;
+    }
+
+    private function setPopup(key as Lang.Number, title as Lang.String, msg as Lang.String, ctx as Lang.String, color as Lang.Number) as Void {
+        if (key == activeKey) { return; }
+        activeKey = key;
+        activeTitle = title;
+        activeMsg = msg;
+        activeCtx = ctx;
+        activeColor = color;
+        activeBits = habitBits(key);
+        popupStart = Time.now().value() * 1000;
+        lastVibKey = key;
+        // Pas de Timer : la watch face est redessinee par le systeme (onUpdate).
+        // La fenetre de 25 s est verifiee dans onPartialUpdate.
+    }
+
+    function onPopupTick() as Void {
+        WatchUi.requestUpdate();
+    }
+
+    private function minutesOfMoment(m as Time.Moment or Null) as Lang.Number {
+        if (m == null) { return -1; }
+        var d = Gregorian.info(m, Time.FORMAT_SHORT);
+        return d.hour * 60 + d.min;
+    }
+
+    private function sleepMinutes() as Lang.Number {
+        var profile = UserProfile.getProfile();
+        if (profile == null) { return 480; }
+        if (!(profile has :sleepTime)) { return 480; }
+        var t = profile.sleepTime;
+        if (t == null) { return 480; }
+        return (t as Time.Duration).value() / 60;
+    }
+
+    private function nearBed(targetMinutesBefore as Lang.Number, nowMin as Lang.Number) as Lang.Boolean {
+        var profile = UserProfile.getProfile();
+        if (profile == null) { return false; }
+        var bed = -1;
+        if (profile has :upcomingSleepTime) {
+            bed = minutesOfMoment(profile.upcomingSleepTime);
+        }
+        if (bed < 0 && profile has :sleepTime) {
+            var bedDur = profile.sleepTime;
+            if (bedDur != null) {
+                bed = 1380 - ((bedDur as Time.Duration).value() / 60);
+            }
+        }
+        if (bed < 0) { return false; }
+        var delta = bed - nowMin;
+        return delta >= targetMinutesBefore - 2 && delta <= targetMinutesBefore + 2;
+    }
+
+    private function wakeWindow(nowMin as Lang.Number) as Lang.Boolean {
+        var profile = UserProfile.getProfile();
+        if (profile == null) { return false; }
+        var wake = -1;
+        if (profile has :upcomingWakeTime) {
+            wake = minutesOfMoment(profile.upcomingWakeTime);
+        }
+        if (wake < 0) { return false; }
+        var delta = nowMin - wake;
+        return delta >= 0 && delta <= 30 && sleepMinutes() < 420;
+    }
+
+    private function isSteppingShort(steps as Lang.Number, goal as Lang.Number) as Lang.Boolean {
+        if (goal <= 0) { return steps < 7000; }
+        return steps < goal * 0.85;
+    }
+
+    // Calcul solaire NOAA简化：declinaison + heure du coucher, position en cache.
+    private function sunsetMinutes(info as Gregorian.Info) as Lang.Number {
+        var lat = load("solar.lat") / 1000.0;
+        var lon = load("solar.lon") / 1000.0;
+        if (load("solar.lat") == 0 && load("solar.lon") == 0) {
+            return -1;
+        }
+        var days = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        var doy = days[info.month - 1] + info.day;
+        var gamma = 2.0 * Math.PI / 365.0 * (doy - 1 + (12.0 - 12.0) / 24.0);
+        var eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
+                     - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
+        var decl = 0.006918 - 0.399912 * Math.cos(gamma) + 0.070257 * Math.sin(gamma)
+                 - 0.006758 * Math.cos(2 * gamma) + 0.000907 * Math.sin(2 * gamma)
+                 - 0.002697 * Math.cos(3 * gamma) + 0.00148 * Math.sin(3 * gamma);
+        var latR = lat * Math.PI / 180.0;
+        var cosH = Math.cos(90.833 * Math.PI / 180.0) / (Math.cos(latR) * Math.cos(decl)) - Math.tan(latR) * Math.tan(decl);
+        if (cosH < -1 || cosH > 1) { return -1; }
+        var ha = Math.acos(cosH) * 180.0 / Math.PI;
+        var sunsetUTC = 720 - 4 * (lon + ha) - eqtime;
+        var nowUTC = (Time.now().value() / 60) % 1440;
+        var nowLocal = info.hour * 60 + info.min;
+        var offset = nowLocal - nowUTC;
+        while (offset > 720) { offset -= 1440; }
+        while (offset < -720) { offset += 1440; }
+        var sunsetLocal = sunsetUTC + offset;
+        while (sunsetLocal < 0) { sunsetLocal += 1440; }
+        while (sunsetLocal >= 1440) { sunsetLocal -= 1440; }
+        return sunsetLocal.toNumber();
+    }
+
+    private function refreshPosition() as Void {
+        if (Position has :getInfo) {
+            var pos = Position.getInfo();
+            if (pos != null && pos.position != null) {
+                var deg = pos.position.toDegrees();
+                var lat = (deg[0] as Lang.Number) * 1000;
+                var lon = (deg[1] as Lang.Number) * 1000;
+                var oldLat = load("solar.lat");
+                var oldLon = load("solar.lon");
+                var moved = true;
+                if (oldLat != 0 && oldLon != 0) {
+                    var dLat = (lat - oldLat) / 1000.0;
+                    var dLon = (lon - oldLon) / 1000.0;
+                    moved = (dLat * dLat + dLon * dLon) > 0.05 * 0.05;
+                }
+                if (moved) {
+                    store("solar.lat", lat.toNumber());
+                    store("solar.lon", lon.toNumber());
+                }
+            }
+        }
+    }
+
+    private function updatePopup(hour as Lang.Number, minute as Lang.Number, dow as Lang.Number,
+                                 steps as Lang.Number, goal as Lang.Number, stress as Lang.Number,
+                                 settings as System.DeviceSettings, info as Gregorian.Info) as Void {
+        var nowMin = hour * 60 + minute;
+        var profile = UserProfile.getProfile();
+
+        // 07:00 — Reveil / lumiere, declenche par l'heure de reveal configuree.
+        if (wakeWindow(nowMin)) {
+            setPopup(700, res(Rez.Strings.Pup07Title), res(Rez.Strings.Pup07Msg),
+                     res(Rez.Strings.Pup07Ctx), C_BORDER_LUMIERE);
             return;
         }
 
-        if (key != lastVibKey) {
-            lastVibKey = key;
-            if (Attention has :vibrate) {
-                if (settings.vibrateOn) {
-                    Attention.vibrate([new Attention.VibeProfile(100, 300)]);
-                }
-            }
+        // 12:30 — Marche apres repas (non mesure : creneau fixe, marque如 tel).
+        if (hour == 12 && minute >= 30 && minute < 31) {
+            setPopup(1230, res(Rez.Strings.Pup1230Title), res(Rez.Strings.Pup1230Msg),
+                     res(Rez.Strings.Pup1230Ctx), C_BORDER_MARCHE);
+            return;
         }
 
-        drawPopup(dc, title, msg, sub);
+        // Coucher - 8 h — Cafeine / alcool, deriver de l'heure de coucher.
+        if (nearBed(480, nowMin)) {
+            setPopup(1500, res(Rez.Strings.Pup15Title), res(Rez.Strings.Pup15Msg),
+                     res(Rez.Strings.Pup15Ctx), C_BORDER_STIMULANTS);
+            return;
+        }
+
+        // Coucher solaire — calcul NOAA, position en cache.
+        if (hour >= 16 && hour <= 20 && minute % 5 == 0) {
+            refreshPosition();
+        }
+        var sunset = sunsetMinutes(info);
+        if (sunset >= 0) {
+            if (nowMin >= sunset && nowMin <= sunset + 2) {
+                setPopup(1730, res(Rez.Strings.Pup17Title), res(Rez.Strings.Pup17Msg),
+                         res(Rez.Strings.Pup17Ctx), C_BORDER_SOLEIL);
+                return;
+            }
+        } else if (nearBed(120, nowMin)) {
+            setPopup(1730, res(Rez.Strings.Pup17Title), res(Rez.Strings.Pup17Msg),
+                     "Coucher approx.", C_BORDER_SOLEIL);
+            return;
+        }
+
+        // 18:30 — Pas : 85 % du stepGoal.
+        if (hour == 18 && minute >= 30 && minute < 31 && isSteppingShort(steps, goal)) {
+            setPopup(1830, res(Rez.Strings.Pup18Title), res(Rez.Strings.Pup18Msg),
+                     res(Rez.Strings.Pup18Ctx), C_BORDER_MARCHE);
+            return;
+        }
+
+        // NSDR — 4 moments du livre, proxy face-only.
+        if (stress > 50 || (profile != null && sleepMinutes() < 420 && hour >= 10 && hour <= 16)) {
+            var ctx = res(Rez.Strings.Pup21ApresMidi);
+            if (hour < 10) {
+                ctx = res(Rez.Strings.Pup21Matin);
+            } else if (hour >= 16 && hour < 20) {
+                ctx = res(Rez.Strings.Pup21Seance);
+            } else if (hour >= 20) {
+                ctx = res(Rez.Strings.Pup21Soir);
+            }
+            setPopup(2100, res(Rez.Strings.Pup21Title), res(Rez.Strings.Pup21Msg), ctx, C_BORDER_NSDR);
+            return;
+        }
+
+        // Coucher - 1 h — Ecrans.
+        if (nearBed(60, nowMin)) {
+            setPopup(2200, res(Rez.Strings.Pup22Title), res(Rez.Strings.Pup22Msg),
+                     res(Rez.Strings.Pup22Ctx), C_BORDER_ECRANS);
+            return;
+        }
+
+        // 22:30 — Soupirs : stress eleve.
+        if (hour == 22 && minute >= 30 && minute < 31 && stress > 40) {
+            setPopup(2230, res(Rez.Strings.Pup2230Title), res(Rez.Strings.Pup2230Msg),
+                     res(Rez.Strings.Pup2230Ctx), C_BORDER_CALME);
+            return;
+        }
+
+        // Aucun rappel actif.
+        activeKey = -1;
+        if (popupTimer != null) { popupTimer.stop(); }
     }
 
-    private function drawPopup(dc as Graphics.Dc, title as Lang.String, msg as Lang.String, sub as Lang.String) as Void {
+    private function drawPopup(dc as Graphics.Dc) as Void {
+        // U79 : surimpression, le cadran reste a sa place (aucun decalage).
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
+        dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawRectangle(POP_X, POP_Y, POP_W, POP_H);
+        dc.drawRectangle(POP_X + 1, POP_Y + 1, POP_W - 2, POP_H - 2);
 
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(POP_X + 8, POP_Y + 6, Graphics.FONT_TINY, title, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(POP_X + 8, POP_Y + 2, Graphics.FONT_SMALL, activeTitle, Graphics.TEXT_JUSTIFY_LEFT);
 
-        // FONT_SMALL ~14 px par lettre sur fr955 : 232 px permettent ~16 caracteres.
-        var parts = wrapText(msg, 16);
-        var ty = POP_Y + 26;
-        for (var i = 0; i < parts.size(); i++) {
+        var parts = wrapText(activeMsg, 16);
+        var ty = POP_Y + 24;
+        for (var i = 0; i < parts.size() && i < 2; i++) {
             var part = parts[i] as Lang.String;
+            if (part == null) { part = "?" as Lang.String; }
             if (part.length() > 16) { part = part.substring(0, 16); }
-            dc.drawText(POP_X + 8, ty, Graphics.FONT_SMALL, part, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(POP_X + 8, ty, Graphics.FONT_TINY, part, Graphics.TEXT_JUSTIFY_LEFT);
             ty += 17;
         }
-        if (!sub.equals("")) {
-            // FONT_TINY ~15 px par lettre sur fr955 : 232 px permettent ~14 caracteres.
-            var shortSub = sub;
-            if (shortSub.length() > 14) {
-                shortSub = shortSub.substring(0, 14);
+
+        // Contexte affiche uniquement si le message tient sur une ligne.
+        var ctx = activeCtx;
+        if (ctx == null) { ctx = "" as Lang.String; }
+        if (parts.size() < 2) {
+            dc.drawText(POP_X + 8, POP_Y + 44, Graphics.FONT_TINY, ctx, Graphics.TEXT_JUSTIFY_LEFT);
+        }
+
+        // Barre de 7 points d'habitude (U41 : le texte reste porteur du sens).
+        var bx = POP_X + 8;
+        for (var i = 0; i < 7; i++) {
+            var bit = 1 << i;
+            if ((activeBits & bit) != 0) {
+                dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
+                dc.fillCircle(bx + i * 10, POP_Y + POP_H - 8, 3);
+            } else {
+                dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+                dc.drawCircle(bx + i * 10, POP_Y + POP_H - 8, 3);
             }
-            dc.drawText(POP_X + 8, POP_Y + POP_H - 20, Graphics.FONT_TINY, shortSub, Graphics.TEXT_JUSTIFY_LEFT);
         }
     }
 
+    // Wrap sur frontiere de mot. Un mot plus long que maxLen est coupe avec "…".
     private function wrapText(text as Lang.String, maxLen as Lang.Number) as Lang.Array {
-        var result = [""];
-        var current = "";
-        for (var i = 0; i < text.length(); i++) {
-            var ch = text.substring(i, i + 1);
-            if (ch.equals(" ")) {
-                if (current.length() > maxLen) {
-                    result.add(current);
-                    current = "";
-                } else {
-                    current = current + " ";
+        if (text == null) { return [""] as Lang.Array; }
+        var lines = [""] as Lang.Array;
+        var current = "" as Lang.String;
+        var word = "" as Lang.String;
+        for (var i = 0; i <= text.length(); i++) {
+            var ch = i < text.length() ? text.substring(i, i + 1) : " ";
+            if (ch.equals(" ") || i == text.length()) {
+                if (!word.equals("")) {
+                    var candidate = current.equals("") ? word : current + " " + word;
+                    if (candidate.length() > maxLen && !current.equals("")) {
+                        lines.add(current);
+                        current = word;
+                    } else {
+                        current = candidate;
+                    }
+                    word = "" as Lang.String;
                 }
             } else {
-                current = current + ch;
+                word = word + ch;
             }
         }
-        if (current.length() > 0) {
-            result.add(current);
-        }
-        return result;
+        if (!current.equals("")) { lines.add(current); }
+        return lines;
     }
 
     private function drawFace(dc as Graphics.Dc, hour as Lang.Number, minute as Lang.Number, seconds as Lang.Number, dowStr as Lang.String, dayStr as Lang.String, monStr as Lang.String, kcalStr as Lang.String, stepsStr as Lang.String, battText as Lang.String, phoneConnected as Lang.Boolean) as Void {
@@ -346,13 +549,12 @@ class BigDigitsView extends WatchUi.WatchFace {
         drawBottomStatus(dc, seconds, battText, phoneConnected);
     }
 
-    // Quatre arcs de 60° à r=126, trous de 30° aux diagonales ; 2 px.
     private function drawArcs(dc as Graphics.Dc) as Void {
         dc.setColor(C_ARC, Graphics.COLOR_TRANSPARENT);
-        drawArcPair(dc, 60, 120);   // haut
-        drawArcPair(dc, 330, 390);  // droite
-        drawArcPair(dc, 240, 300);  // bas
-        drawArcPair(dc, 150, 210);  // gauche
+        drawArcPair(dc, 60, 120);
+        drawArcPair(dc, 330, 390);
+        drawArcPair(dc, 240, 300);
+        drawArcPair(dc, 150, 210);
     }
 
     private function drawArcPair(dc as Graphics.Dc, start as Lang.Number, end as Lang.Number) as Void {
@@ -360,8 +562,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.drawArc(130, 130, 125, Graphics.ARC_COUNTER_CLOCKWISE, start, end);
     }
 
-    // Date : jour en 7 segments 10×16, jour/mois en pixel 5×7 échelle 2,
-    // le tout en blanc. Seul le numéro du jour est agrandi.
     private function drawDate(dc as Graphics.Dc, dowStr as Lang.String, dayStr as Lang.String, monStr as Lang.String) as Void {
         var gap = 6;
         var advance = 12;
@@ -391,7 +591,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
     }
 
-    // Lettres de date : police trait 10×12, 1 px, pour un rendu plus léger.
     private function drawDateChar(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, ch as Lang.String) as Void {
         if (ch.equals("A")) {
             dc.fillRectangle(x + 1, y, 8, 1);
@@ -485,7 +684,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
     }
 
-    // Police pixel 5×7 : une ligne = 5 bits (MSB à gauche).
     private function glyphRows(ch as Lang.String) as Lang.Array {
         if (ch.equals("A")) { return [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11]; }
         if (ch.equals("C")) { return [0x0F, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0F]; }
@@ -519,33 +717,24 @@ class BigDigitsView extends WatchUi.WatchFace {
         return [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     }
 
-    // Valeur verticale : chiffres 7 segments 10×14 (trait 2), comme les
-    // secondes, mais empilés verticalement et en gris. Un peu d'air entre
-    // chaque chiffre, et davantage entre les milliers et les centaines.
     private function drawVerticalData(dc as Graphics.Dc, cx as Lang.Number, value as Lang.String) as Void {
         var baseLine = 17;
         var groupGap = 4;
         var n = value.length();
         var hasGroupGap = (n == 5);
         var total = (n - 1) * baseLine + 14;
-        if (hasGroupGap) {
-            total += groupGap;
-        }
+        if (hasGroupGap) { total += groupGap; }
         var y = DATA_CY - total / 2;
         var split = n - 3;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         for (var i = 0; i < n; i++) {
-            if (hasGroupGap && i == split) {
-                y += groupGap;
-            }
+            if (hasGroupGap && i == split) { y += groupGap; }
             var digit = value.substring(i, i + 1).toNumber();
             drawSegDigit(dc, cx - 5, y, digit, 10, 14, 2, 6);
             y += baseLine;
         }
     }
 
-    // Ligne du bas : point de connexion (gauche), secondes (centre),
-    // autonomie restante (droite), en police pixel 5×7.
     private function drawBottomStatus(dc as Graphics.Dc, seconds as Lang.Number, battText as Lang.String, phoneConnected as Lang.Boolean) as Void {
         drawSeconds(dc, seconds);
         if (phoneConnected) {
@@ -555,8 +744,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         drawBatteryTime(dc, BATTERY_X, SEC_Y, battText);
     }
 
-    // « 5J » / « 12H » : nombre en 5×7 (échelle 2), unité en 5×7 (échelle 1)
-    // en haut à droite. « CHG » est affiché petit, centré verticalement.
     private function drawBatteryTime(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, text as Lang.String) as Void {
         dc.setColor(C_DATA, Graphics.COLOR_TRANSPARENT);
         var last = text.substring(text.length() - 1, text.length());
@@ -579,7 +766,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
     }
 
-    // Unité J/H : mêmes glyphes 5×7 que la date et les data, échelle 1.
     private function drawUnit(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, unit as Lang.String) as Void {
         var rows;
         if (unit.equals("J")) {
@@ -597,11 +783,14 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
     }
 
-    // Secondes horizontales en bas : 2 chiffres 10×14, trait 2.
     private function drawSeconds(dc as Graphics.Dc, seconds as Lang.Number) as Void {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         drawSegDigit(dc, SEC_X, SEC_Y, seconds / 10, SEC_W, SEC_H, SEC_S, SEC_MID);
         drawSegDigit(dc, SEC_X + SEC_W + SEC_GAP, SEC_Y, seconds % 10, SEC_W, SEC_H, SEC_S, SEC_MID);
+    }
+
+    private function drawBigDigit(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, digit as Lang.Number) as Void {
+        drawSegDigit(dc, x, y, digit, CELL, CELL, STROKE, MID);
     }
 
     private function drawSegDigit(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, digit as Lang.Number, w as Lang.Number, h as Lang.Number, s as Lang.Number, mid as Lang.Number) as Void {
@@ -617,40 +806,6 @@ class BigDigitsView extends WatchUi.WatchFace {
         var e = (digit == 0 || digit == 2 || digit == 6 || digit == 8);
         var f = (digit == 0 || digit == 4 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
         var g = (digit == 2 || digit == 3 || digit == 4 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-
-        if (a) { dc.fillRectangle(x, y, w, s); }
-        if (g) { dc.fillRectangle(x, y + mid, w, s); }
-        if (d) { dc.fillRectangle(x, y + low, w, s); }
-        if (f) { dc.fillRectangle(x, y, s, mid + s); }
-        if (b) { dc.fillRectangle(x + w - s, y, s, mid + s); }
-        if (e) { dc.fillRectangle(x, y + mid, s, h - mid); }
-        if (c) { dc.fillRectangle(x + w - s, y + mid, s, h - mid); }
-    }
-
-    // 1 : barre verticale de 18 px, centrée, sur toute la hauteur.
-    private function drawOne(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, height as Lang.Number) as Void {
-        var k = height / 90.0;
-        dc.fillRectangle(x + 36 * k, y, 18 * k, height);
-    }
-
-    private function drawBigDigit(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, digit as Lang.Number) as Void {
-        if (digit == 1) {
-            drawOne(dc, x, y, CELL);
-        } else {
-            drawBigDigitSized(dc, x, y, digit, CELL, CELL, STROKE, MID);
-        }
-    }
-
-    private function drawBigDigitSized(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, digit as Lang.Number, w as Lang.Number, h as Lang.Number, s as Lang.Number, mid as Lang.Number) as Void {
-        var low = h - s;
-        var a = (digit == 0 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 7 || digit == 8 || digit == 9);
-        var b = (digit == 0 || digit == 1 || digit == 2 || digit == 3 || digit == 4 || digit == 7 || digit == 8 || digit == 9);
-        var c = (digit == 0 || digit == 1 || digit == 3 || digit == 4 || digit == 5 || digit == 6 || digit == 7 || digit == 8 || digit == 9);
-        var d = (digit == 0 || digit == 2 || digit == 3 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-        var e = (digit == 0 || digit == 2 || digit == 6 || digit == 8);
-        var f = (digit == 0 || digit == 4 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-        var g = (digit == 2 || digit == 3 || digit == 4 || digit == 5 || digit == 6 || digit == 8 || digit == 9);
-
         if (a) { dc.fillRectangle(x, y, w, s); }
         if (g) { dc.fillRectangle(x, y + mid, w, s); }
         if (d) { dc.fillRectangle(x, y + low, w, s); }
