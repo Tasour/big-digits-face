@@ -372,6 +372,15 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
     }
 
+    // Selection du moment NSDR, extraite pour etre appelee telle quelle par le
+    // harnais de capture (le rendu ne depend pas des capteurs, seulement de l'heure).
+    private function nsdrContext(hour as Lang.Number) as Lang.String {
+        if (hour < 10) { return res(Rez.Strings.Pup21Matin); }
+        if (hour >= 16 && hour < 20) { return res(Rez.Strings.Pup21Seance); }
+        if (hour >= 20) { return res(Rez.Strings.Pup21Soir); }
+        return res(Rez.Strings.Pup21ApresMidi);
+    }
+
     private function updatePopup(hour as Lang.Number, minute as Lang.Number, dow as Lang.Number,
                                  steps as Lang.Number, goal as Lang.Number, stress as Lang.Number,
                                  settings as System.DeviceSettings, info as Gregorian.Info) as Void {
@@ -425,15 +434,8 @@ class BigDigitsView extends WatchUi.WatchFace {
 
         // NSDR — 4 moments du livre, proxy face-only.
         if (stress > 50 || (profile != null && sleepMinutes() < 420 && hour >= 10 && hour <= 16)) {
-            var ctx = res(Rez.Strings.Pup21ApresMidi);
-            if (hour < 10) {
-                ctx = res(Rez.Strings.Pup21Matin);
-            } else if (hour >= 16 && hour < 20) {
-                ctx = res(Rez.Strings.Pup21Seance);
-            } else if (hour >= 20) {
-                ctx = res(Rez.Strings.Pup21Soir);
-            }
-            setPopup(2100, res(Rez.Strings.Pup21Title), res(Rez.Strings.Pup21Msg), ctx, C_BORDER_NSDR);
+            setPopup(2100, res(Rez.Strings.Pup21Title), res(Rez.Strings.Pup21Msg),
+                     nsdrContext(hour), C_BORDER_NSDR);
             return;
         }
 
@@ -478,7 +480,7 @@ class BigDigitsView extends WatchUi.WatchFace {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
             if (part.length() > 18) { part = part.substring(0, 18); }
-            dc.drawText(centerX, lineY, Graphics.FONT_TINY, part, justify);
+            dc.drawText(centerX, lineY, Graphics.FONT_XTINY, part, justify);
             lineY += 23;
         }
 
@@ -486,11 +488,11 @@ class BigDigitsView extends WatchUi.WatchFace {
         var ctx = activeCtx;
         if (ctx == null) { ctx = "" as Lang.String; }
         if (parts.size() < 2) {
-            dc.drawText(centerX, POP_Y + 84, Graphics.FONT_TINY, ctx, justify);
+            dc.drawText(centerX, POP_Y + 84, Graphics.FONT_XTINY, ctx, justify);
         }
 
         // Barre de 7 carres d'habitude (U41 : le texte reste porteur du sens).
-        var side = 6;
+        var side = 10;
         var gap = 4;
         var total = 7 * side + 6 * gap;
         var bx = centerX - total / 2 + side / 2;

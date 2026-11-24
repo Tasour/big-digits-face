@@ -23,7 +23,6 @@
 
     <string id="Pup18Title">Pas</string>
     <string id="Pup18Msg">Marche 5 min, pas assez</string>
-    <string id="Pup18Ok">Objectif pas atteint</string>
     <string id="Pup18Ctx">Moins de 85 % du stepGoal</string>
 
     <string id="Pup21Title">NSDR</string>

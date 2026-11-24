@@ -134,7 +134,7 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
 
 - **Casse** : titre en Title Case, message en phrase (U01/U18). Accents `é è °`
   confirmés sur `fr955` (`accent-test.png`).
-- **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_TINY`, contexte
+- **Hiérarchie** (U03/U33) : titre `FONT_SMALL`, message `FONT_XTINY`, contexte
   affiché seulement si le message tient sur une ligne. Échelle fermée à 2 niveaux.
 - **Rectangle** (U79) : 232×96 à y=88, **fond noir et texte blanc**. Bordure
   pleine de 3 px colorée par catégorie (U19/U41) : orange = lumière,
@@ -143,15 +143,15 @@ Mesures et arbitrages : `docs/messages-v2.md`, `docs/rag-messages.md`,
 - **Centrage** : titre, deux lignes de message et barre d'habitude sont centrés
   horizontalement (`TEXT_JUSTIFY_CENTER`) et verticalement
   (`TEXT_JUSTIFY_VCENTER`). Interligne porté à 23 px CIQ.
-- **Habitude (forme)** : 7 carrés de 6 px, vides (contour blanc) si non fait,
-  pleins (couleur de catégorie) si fait.
+- **Habitude (forme)** : 7 carrés de 10 px, vides (contour blanc) si non fait,
+  pleins de la couleur de bordure si fait. Exemple `docs/screens/habit-partiel-popup.png`.
 - **Durée** (U62) : 25 s, vérifiée dans `onPartialUpdate`.
 - **Wrap** (U73) : `wrapText()` démarre avec un tableau vide. Une entrée `""`
   initiale masquait la première ligne et tronquait tous les messages ; la
-  découpe est à 18 caractères (196 px CIQ pour 216 px utiles) et le titre est
-  espacé du message (6 px CIQ au lieu de 2). Défauts corrigés après relecture
-  des captures.
-- **Habitude** : barre de 7 points, fenêtre glissante 7 jours, un seul appui par
+  découpe est à 18 caractères (~135 px CIQ en `FONT_XTINY` pour 216 px utiles)
+  et le titre est espacé du message (6 px CIQ au lieu de 2). Défauts corrigés
+  après relecture des captures.
+- **Habitude** : barre de 7 carrés, fenêtre glissante 7 jours, un seul appui par
   jour via `WatchFaceDelegate` (bouton haut droit). Score persisté dans
   `Application.Storage`. Un second appui est ignoré.
 - **Checks réels** : pas < 85 % du `stepGoal`, stress > 50, position solaire NOAA
