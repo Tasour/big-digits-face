@@ -30,6 +30,9 @@ for f in bin/bigdigits-fr955.prg companion/bin/bigdigits-buzz-fr955.prg chrono/b
   if [ -f "$WATCH/$name" ]; then
     gio copy "$WATCH/$name" "$WATCH/$name.prev.$STAMP"
     echo "Sauvegarde $name.prev.$STAMP"
+    # MTP refuse d'ecraser une destination existante (Operation non prise en
+    # charge) : on retire l'ancien fichier apres sauvegarde.
+    gio remove "$WATCH/$name"
   fi
   gio copy "$f" "$WATCH/$name"
   local_size="$(stat -c%s "$f")"
