@@ -11,10 +11,18 @@ TMP="$(mktemp /tmp/opencode/timing-parity.XXXXXX)"
 trap 'rm -f "$TMP"' EXIT
 
 grep -v '^(:background)$' "$COMPANION" >"$TMP"
-if diff -q "$SHARED" "$TMP" >/dev/null; then
-  echo "OK  parite Timing.mc (face = compagnon)"
-  exit 0
+if ! diff -q "$SHARED" "$TMP" >/dev/null; then
+  echo "KO  divergence entre $SHARED et $COMPANION" >&2
+  diff -u "$SHARED" "$TMP" | head -40 >&2
+  exit 1
 fi
-echo "KO  divergence entre $SHARED et $COMPANION" >&2
-diff -u "$SHARED" "$TMP" | head -40 >&2
-exit 1
+
+# Le module de geometrie est une copie exacte : aucune annotation a retirer.
+if ! diff -q "shared/DiagLayout.mc" "companion/source/DiagLayout.mc" >/dev/null; then
+  echo "KO  divergence DiagLayout.mc (face = compagnon)" >&2
+  diff -u "shared/DiagLayout.mc" "companion/source/DiagLayout.mc" | head -40 >&2
+  exit 1
+fi
+
+echo "OK  parite Timing.mc et DiagLayout.mc (face = compagnon)"
+exit 0

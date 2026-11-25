@@ -143,3 +143,17 @@ Les trois binaires de production compilent en `-r` sans erreur. **Cause simulato
   (avant le correctif de démarrage en fond). Aucune nouvelle entrée depuis le
   déploiement ; l'exécution réelle sur la montre après copie n'est pas
   mesurée ici.
+
+## 10. Diagnostic paginé (correction des FIX-01 à FIX-03)
+
+- Photo réelle du cadran : titre coupé, pied tronqué et bords du bloc hors du
+  cercle avec l'ancienne grille à 14 lignes sur deux colonnes.
+- Correctif : deux pages d'une seule colonne (7 mesures chacune), titre en
+  `FONT_TINY`, largeur du bloc ramenée à 66 % de l'écran et marge verticale de
+  10 %. Le module pur `DiagLayout.grid()` est partagé face/compagnon et couvert
+  par 4 tests (54 au total).
+- Navigation UP/DOWN vérifiée dans le simulateur. Captures relues :
+  `docs/screens/diag-page1-watch.png` et `docs/screens/diag-page2-watch.png`.
+- Les métriques de police **sur le device** restent `notMeasured` (montre
+  débranchée au moment de la mesure) : la marge est donc dimensionnée pour
+  résister à des polices plus grandes, pas calibrée sur une valeur inventée.

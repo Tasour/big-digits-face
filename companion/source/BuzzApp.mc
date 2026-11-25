@@ -37,6 +37,8 @@ var gReason as Lang.String = "aucun";
 var gBle as Lang.String = "aucun";
 (:background)
 var gSource as Lang.String = "local";
+(:background)
+var gDiagPage as Lang.Number = 0;
 var gSending as Lang.Boolean = false;
 
 (:background)
@@ -899,9 +901,9 @@ class DiagView extends Ui.View {
         View.initialize();
     }
 
-    // Toute la geometrie est mesuree : hauteur de police reelle, largeur
-    // reelle des etiquettes. Aucune valeur magique, donc aucun chevauchement
-    // possible quand la police systeme change de taille.
+    // Deux pages d'une seule colonne : la grille est calculee par le module
+    // pur DiagLayout, avec une marge de 10 % qui garde le cadre dans le
+    // cercle du cadran meme quand les polices du device sont plus grandes.
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
@@ -909,78 +911,62 @@ class DiagView extends Ui.View {
         var width = dc.getWidth();
         var height = dc.getHeight();
         var font = Graphics.FONT_XTINY;
-        var titleFont = Graphics.FONT_SMALL;
-        var lineH = dc.getFontHeight(font) + 1;
-        var titleH = dc.getFontHeight(titleFont) + 4;
-        var glyphW = dc.getFontHeight(font);
-        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        var leftJustify = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
-
-        var count = gMetrics.size();
-        if (count == 0) {
-            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(width / 2, height / 2, titleFont, "Aucune mesure", justify);
-            return;
-        }
-
-        // Largeur reelle de chaque colonne avant de choisir la disposition.
-        var half = (count + 1) / 2;
-        var w0 = 0;
-        var w1 = 0;
-        for (var i = 0; i < count; i++) {
-            var row = gMetrics[i] as Lang.Array;
-            var tw = dc.getTextWidthInPixels(row[0] as Lang.String, font);
-            if (i < half) {
-                if (tw > w0) { w0 = tw; }
-            } else {
-                if (tw > w1) { w1 = tw; }
-            }
-        }
-
-        var pad = 10;
-        var gutter = 16;
-        var textGap = glyphW + 6;
-        var twoCols = textGap + w0 + gutter + textGap + w1;
-        var single = twoCols > width - 2 * pad - 2;
-        var rows = single ? count : half;
-        var contentW = single ? (textGap + w0) : twoCols;
-
+        var titleFont = Graphics.FONT_TINY;
+        var lineH = dc.getFontHeight(font) + 2;
+        var titleH = dc.getFontHeight(titleFont) + 6;
+        var margin = (height * 10) / 100;
         var footer = 2;
-        var totalH = titleH + rows * lineH + lineH + footer * lineH;
-        var top = (height - totalH) / 2;
-        if (top < 4) { top = 4; }
+        if ((height - 2 * margin - titleH) / lineH < 9) { footer = 1; }
 
-        var boxW = contentW + 2 * pad;
-        if (boxW > width - 4) { boxW = width - 4; }
-        var left = (width - boxW) / 2;
-        var rightStart = left + pad + textGap + w0 + gutter;
+        var g = DiagLayout.grid(width, height, lineH, titleH, footer);
+        var boxW = g[:boxW] as Lang.Number;
+        var boxH = g[:boxH] as Lang.Number;
+        var left = g[:left] as Lang.Number;
+        var top = g[:top] as Lang.Number;
+        var rowY = g[:rowY] as Lang.Number;
+        var footerY = g[:footerY] as Lang.Number;
 
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawRectangle(left, top, boxW, totalH);
+        dc.drawRectangle(left, top, boxW, boxH);
 
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var leftJustify = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(width / 2, top + titleH / 2, titleFont, "DIAGNOSTIC", justify);
+        dc.drawText(width / 2, top + titleH / 2, titleFont,
+                    "DIAGNOSTIC " + (gDiagPage + 1).format("%d") + "/2", justify);
 
-        for (var i = 0; i < count; i++) {
-            var row = gMetrics[i] as Lang.Array;
-            var inRight = !single && i >= rows;
-            var idx = single ? i : (i < rows ? i : i - rows);
-            var x = inRight ? rightStart : left + pad;
-            var y = top + titleH + idx * lineH + lineH / 2;
-            drawGlyph(dc, x, y, row[1] as Lang.Boolean);
-            dc.drawText(x + textGap, y, font, row[0] as Lang.String, leftJustify);
+        var count = gMetrics.size();
+        var perPage = 7;
+        var start = gDiagPage * perPage;
+        var textGap = (dc.getFontHeight(font) + 8);
+        for (var i = 0; i < perPage && start + i < count; i++) {
+            var row = gMetrics[start + i] as Lang.Array;
+            var y = rowY + i * lineH;
+            drawGlyph(dc, left + 10, y, row[1] as Lang.Boolean);
+            dc.drawText(left + 10 + textGap, y, font, row[0] as Lang.String, leftJustify);
         }
 
-        // Observabilite sous le bloc.
+        // Observabilite : une ligne par page, ou deux quand la place le permet.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        var ly = top + titleH + rows * lineH + lineH / 2;
         var cx = width / 2;
-        // Trois lignes au lieu de cinq : toute l'information reste visible
-        // dans le cercle du cadran, meme quand la police systeme est grande.
-        dc.drawText(cx, ly, font,
-                    "E:" + gEvents.format("%d") + "/7 " + gLastEvent + "  B:" + gLastBuzz +
-                    "  R:" + gReason, justify);
-        dc.drawText(cx, ly + lineH, font, "BLE:" + gBle + "  S:" + gSource, justify);
+        if (gDiagPage == 0) {
+            var first = "E:" + gEvents.format("%d") + "/7 " + gLastEvent +
+                        "  B:" + gLastBuzz;
+            // Une seule ligne disponible : on garde les trois etats courts.
+            var merged = "E:" + gEvents.format("%d") + "/7 B:" + gLastBuzz +
+                         " R:" + gReason;
+            dc.drawText(cx, footerY, font, footer == 1 ? merged : first, justify);
+            if (footer == 2) {
+                dc.drawText(cx, footerY + lineH, font, "R:" + gReason, justify);
+            }
+        } else {
+            var link = "BLE:" + gBle;
+            dc.drawText(cx, footerY, font, footer == 1 ? link + "  S:" + gSource : link,
+                        justify);
+            if (footer == 2) {
+                dc.drawText(cx, footerY + lineH, font, "S:" + gSource, justify);
+            }
+        }
     }
 }
 
@@ -1118,6 +1104,25 @@ class DiagDelegate extends Ui.BehaviorDelegate {
     function onMenu() as Lang.Boolean {
         Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
         return true;
+    }
+
+    function onNextPage() as Lang.Boolean {
+        gDiagPage = (gDiagPage + 1) % 2;
+        Ui.requestUpdate();
+        return true;
+    }
+
+    function onPreviousPage() as Lang.Boolean {
+        gDiagPage = (gDiagPage + 1) % 2;
+        Ui.requestUpdate();
+        return true;
+    }
+
+    function onKey(keyEvent as Ui.KeyEvent) as Lang.Boolean {
+        var key = keyEvent.getKey();
+        if (key == Ui.KEY_UP) { return onPreviousPage(); }
+        if (key == Ui.KEY_DOWN) { return onNextPage(); }
+        return false;
     }
 
     // Bouton haut droit : test vibration immediat.

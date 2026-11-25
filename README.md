@@ -140,8 +140,13 @@ La montre décide seule. Le téléphone ne fait que corriger, une fois par jour.
 - **Transport** : `Communications.transmit` / `registerForPhoneAppMessages`,
   BLE uniquement, zéro URL, zéro cloud. Une seule requête en vol ; en cas
   d'échec, nouvelle tentative à la prochaine ouverture, trois fois par jour.
-- **Diagnostic** : deux lignes `BLE:` (envoi / ok / attente / abandon / rejeté)
-  et `Src:` (`local` ou `connect`) sur l'écran de diagnostic.
+- **Diagnostic** : deux pages (`DIAGNOSTIC 1/2` et `2/2`), 7 mesures par page,
+  navigation par UP/DOWN. Le pied affiche `E:`/`B:`/`R:` sur la page capteurs
+  et `BLE:`/`S:` sur la page lien. La grille est calculée par le module pur
+  `shared/DiagLayout.mc` (copie identique dans le compagnon, vérifiée par
+  `check-timing-parity.sh`), avec une marge de 10 % et une largeur de 66 %
+  pour rester dans le cercle du cadran quelles que soient les métriques de
+  police du device.
 
 Le contrat complet, offset par offset, est dans
 `docs/architecture/PHONE-CONTRACT.md`. Vérification du format sans téléphone :
