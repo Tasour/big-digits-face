@@ -54,14 +54,14 @@ class ChronoView extends WatchUi.View {
     const GO_MS = 3000;
     const LAP_MS = 2000;
 
-    hidden var _state;
-    hidden var _baseMs;
-    hidden var _startMs;
-    hidden var _goUntil;
-    hidden var _lapFlashUntil;
-    hidden var _lapMs;
-    hidden var _lastLapMs;
-    hidden var _timer;
+    hidden var _state as Lang.Number;
+    hidden var _baseMs as Lang.Number;
+    hidden var _startMs as Lang.Number;
+    hidden var _goUntil as Lang.Number;
+    hidden var _lapFlashUntil as Lang.Number;
+    hidden var _lapMs as Lang.Number;
+    hidden var _lastLapMs as Lang.Number;
+    hidden var _timer as Timer.Timer or Null;
 
     function initialize() {
         View.initialize();
@@ -136,11 +136,13 @@ class ChronoView extends WatchUi.View {
     }
 
     private function startTimer() as Void {
-        _timer.start(method(:onTick), TICK_MS, true);
+        var timer = _timer as Timer.Timer;
+        timer.start(method(:onTick), TICK_MS, true);
     }
 
     private function stopTimer() as Void {
-        _timer.stop();
+        var timer = _timer as Timer.Timer;
+        timer.stop();
     }
 
     private function elapsedMs() as Lang.Number {
@@ -215,18 +217,18 @@ class ChronoView extends WatchUi.View {
 
     private function drawGroup(dc as Graphics.Dc, slotX as Lang.Number, slotW as Lang.Number, y as Lang.Number, value as Lang.String, w as Lang.Number, h as Lang.Number, s as Lang.Number, mid as Lang.Number, mask as Lang.Boolean) as Void {
         var n = value.length();
-        if (mask && n == 2 && value.substring(0, 1).equals("0")) {
-            drawDigit(dc, slotX + (slotW - w) / 2, y, value.substring(1, 2).toNumber(), w, h, s, mid);
+        if (mask && n == 2 && (value.substring(0, 1) as Lang.String).equals("0")) {
+            drawDigit(dc, slotX + (slotW - w) / 2, y, (value.substring(1, 2) as Lang.String).toNumber() as Lang.Number, w, h, s, mid);
             return;
         }
         if (n == 1) {
-            drawDigit(dc, slotX + (slotW - w) / 2, y, value.toNumber(), w, h, s, mid);
+            drawDigit(dc, slotX + (slotW - w) / 2, y, value.toNumber() as Lang.Number, w, h, s, mid);
             return;
         }
         var gap = (slotW - n * w) / (n - 1);
         var startX = slotX + (slotW - (n * w + (n - 1) * gap)) / 2;
         for (var i = 0; i < n; i++) {
-            drawDigit(dc, startX + i * (w + gap), y, value.substring(i, i + 1).toNumber(), w, h, s, mid);
+            drawDigit(dc, startX + i * (w + gap), y, (value.substring(i, i + 1) as Lang.String).toNumber() as Lang.Number, w, h, s, mid);
         }
     }
 

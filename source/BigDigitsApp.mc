@@ -10,4 +10,8 @@ class BigDigitsApp extends Application.AppBase {
     function getInitialView() {
         return [ new BigDigitsView(), new BigDigitsDelegate() ];
     }
+
+    function getSettingsView() {
+        return [ new BigDigitsSettingsView(), new BigDigitsSettingsDelegate() ];
+    }
 }

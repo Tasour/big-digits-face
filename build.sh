@@ -25,5 +25,6 @@ mkdir -p bin
   -o bin/bigdigits-fr955.prg \
   -y developer_key.der \
   -r \
+  -l 3 \
   -w
 echo "OK: bin/bigdigits-fr955.prg"

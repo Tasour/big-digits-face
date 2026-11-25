@@ -16,5 +16,6 @@ mkdir -p bin
   -o bin/bigdigits-buzz-fr955.prg \
   -y developer_key.der \
   -r \
+  -l 2 \
   -w
 echo "OK: bin/bigdigits-buzz-fr955.prg"

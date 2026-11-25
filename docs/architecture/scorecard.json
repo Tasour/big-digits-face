@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-11-25T00:35:00.726Z",
+  "root": "/home/tasour/Work/big-digits-face",
+  "weights": {
+    "simplicite": 15,
+    "modularite": 15,
+    "donnees": 15,
+    "api": 10,
+    "performance": 15,
+    "securite": 10,
+    "testabilite": 10,
+    "dx": 5,
+    "cout": 5
+  },
+  "dimensions": {
+    "simplicite": {
+      "status": "measured",
+      "score": 2,
+      "weight": 15,
+      "evidence": [
+        "wc -l : face 871, app 581, chrono 347",
+        "BigDigitsView.mc:491-500 et BuzzApp.mc:317-327 dupliquent weekdayLetters"
+      ],
+      "note": "1829 lignes Monkey C mesurées ; helpers dupliqués, aucun barrel."
+    },
+    "modularite": {
+      "status": "measured",
+      "score": 2,
+      "weight": 15,
+      "evidence": [
+        "monkey.jungle:4",
+        "companion/monkey.jungle:3",
+        "README.md:168-170"
+      ],
+      "note": "Apps séparées physiquement, aucun module partagé, Storage étanche."
+    },
+    "donnees": {
+      "status": "measured",
+      "score": 1,
+      "weight": 15,
+      "evidence": [
+        "BigDigitsView.mc:222-234",
+        "BigDigitsView.mc:218-220",
+        "BuzzApp.mc:465"
+      ],
+      "note": "Stockage présent mais destructeur prouvé, aucun schemaVersion, aucun test."
+    },
+    "api": {
+      "status": "unknown",
+      "score": null,
+      "weight": 10,
+      "evidence": [],
+      "note": "Angle absent au moment de la génération du score initial ; contrats depuis livrés, score non recalculé."
+    },
+    "performance": {
+      "status": "measured",
+      "score": 1,
+      "weight": 15,
+      "evidence": [
+        "stat -c %s : face 20972 B, app 14588 B",
+        "BuzzApp.mc:189,489",
+        "doc/Toybox/Background.html:1707"
+      ],
+      "note": "Binaires sous budget ; aucun relevé CPU/heap/courant, planning illégal prouvé."
+    },
+    "securite": {
+      "status": "measured",
+      "score": 2,
+      "weight": 10,
+      "evidence": [
+        "manifest.xml:14-17",
+        "companion/manifest.xml:13-18",
+        ".gitignore:2-4"
+      ],
+      "note": "Aucune permission réseau, permissions cohérentes, aucun lint automatique."
+    },
+    "testabilite": {
+      "status": "measured",
+      "score": 1,
+      "weight": 10,
+      "evidence": [
+        "BuzzApp.mc:256-262",
+        "0 test unitaire versionné",
+        "docs/screens/app-diagnostic-simulator.png"
+      ],
+      "note": "Diagnostic 15 métriques mais oracle en bande, captures non reproductibles."
+    },
+    "dx": {
+      "status": "measured",
+      "score": 1,
+      "weight": 5,
+      "evidence": [
+        "build.sh:22-28",
+        "git log -1 62810e15c2, 0 tag",
+        "monkey.jungle:1-7"
+      ],
+      "note": "Une commande locale, mais pas de CI, ni provenance, ni typecheck."
+    },
+    "cout": {
+      "status": "measured",
+      "score": 2,
+      "weight": 5,
+      "evidence": [
+        "README.md:240-245",
+        "docs/veille/2026-11-25-...:11"
+      ],
+      "note": "Aucun hébergement ; coût énergétique réel non mesuré."
+    }
+  },
+  "score": 30,
+  "coverage": 0.9,
+  "confidence": "partial"
+}

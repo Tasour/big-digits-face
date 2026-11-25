@@ -12,6 +12,28 @@ using Toybox.UserProfile;
 using Toybox.WatchUi;
 
 var gBigDigitsView as BigDigitsView or Null;
+var gComplicationPending as Lang.Boolean = false;
+
+// Decalage pur de la fenetre glissante : testable sans Storage ni horloge.
+function shiftHabitBits(bits as Lang.Number, days as Lang.Number) as Lang.Number {
+    if (bits == 0 || days < 0) { return bits & 0x7F; }
+    if (days >= 7) { return 0; }
+    return (bits << days) & 0x7F;
+}
+
+function settingFlag(key as Lang.String) as Lang.Number {
+    var v = Application.Storage.getValue(key);
+    if (v != null && v instanceof Lang.Number) { return v as Lang.Number; }
+    return 1;
+}
+
+// 1=dimanche ... 7=samedi ; i=0 est aujourd'hui.
+function weekdayLetterFor(dow as Lang.Number, i as Lang.Number) as Lang.String {
+    var names = ["L", "M", "M", "J", "V", "S", "D"];
+    var gi = (dow - 1 - i) % 7;
+    if (gi < 0) { gi += 7; }
+    return names[(gi + 6) % 7];
+}
 
 // Big Digits — cadran "gros chiffres" + rappels Protocoles.
 //
@@ -140,15 +162,15 @@ class BigDigitsView extends WatchUi.WatchFace {
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var dows = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
         var months = ["JAN", "FEV", "MAR", "AVR", "MAI", "JUIN", "JUIL", "AOU", "SEP", "OCT", "NOV", "DEC"];
-        var dowIdx = info.day_of_week - 1;
+        var dowIdx = (info.day_of_week as Lang.Number) - 1;
         if (dowIdx < 0) { dowIdx = 0; }
         if (dowIdx > 6) { dowIdx = 6; }
-        var monIdx = info.month - 1;
+        var monIdx = (info.month as Lang.Number) - 1;
         if (monIdx < 0) { monIdx = 0; }
         if (monIdx > 11) { monIdx = 11; }
-        var dowStr = dows[dowIdx];
-        var dayStr = info.day.format("%d");
-        var monStr = months[monIdx];
+        var dowStr = dows[dowIdx] as Lang.String;
+        var dayStr = (info.day as Lang.Number).format("%d");
+        var monStr = months[monIdx] as Lang.String;
 
         var profile = UserProfile.getProfile();
         if (profile != null) {
@@ -175,9 +197,13 @@ class BigDigitsView extends WatchUi.WatchFace {
         drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr,
                  kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
 
-        updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
-        if (activeKey >= 0) {
-            drawPopup(dc);
+        if (settingFlag("face.showPopups") != 0) {
+            updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
+            if (activeKey >= 0) {
+                drawPopup(dc);
+            }
+        } else {
+            activeKey = -1;
         }
     }
 
@@ -186,7 +212,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         var clock = System.getClockTime();
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillRectangle(SEC_X - 2, SEC_Y - 2, SEC_W * 2 + SEC_GAP + 4, SEC_H + 4);
-        drawSeconds(dc, clock.sec);
+        if (settingFlag("face.showSeconds") != 0) { drawSeconds(dc, clock.sec); }
         if (activeKey >= 0) {
             var nowMs = Time.now().value() * 1000;
             var limit = activeKey == 9999 ? 10000 : POP_MS;
@@ -225,10 +251,11 @@ class BigDigitsView extends WatchUi.WatchFace {
         var today = dayIndex();
         var last = load(kd);
         var bits = load(k);
-        if (last == 0 || last < today - 1) {
+        // Un jour manque ne doit pas effacer la fenetre glissante.
+        if (last == 0 || last > today) {
             bits = 0;
-        } else if (last < today) {
-            bits = (bits << 1) & 0x7F;
+        } else {
+            bits = shiftHabitBits(bits, today - last);
         }
         return bits;
     }
@@ -254,10 +281,23 @@ class BigDigitsView extends WatchUi.WatchFace {
     // Bouton haut droit : accuse reception si un rappel est actif, sinon
     // affiche un panneau de test de 10 s directement sur le cadran.
     public function onButtonPress() as Lang.Boolean {
-        if (activeKey >= 0) { return markDone(); }
+        // Priorite : accuser le rappel, puis la complication, puis test.
+        if (activeKey >= 0) {
+            markDone();
+            dismissPopup();
+            return true;
+        }
+        if (gComplicationPending && handleComplicationPress()) {
+            return true;
+        }
         setPopup(9999, res(Rez.Strings.TestTitle), res(Rez.Strings.TestMsg),
                  "", Graphics.COLOR_ORANGE);
         return true;
+    }
+
+    public function dismissPopup() as Void {
+        activeKey = -1;
+        WatchUi.requestUpdate();
     }
 
     private function setPopup(key as Lang.Number, title as Lang.String, msg as Lang.String, ctx as Lang.String, color as Lang.Number) as Void {
@@ -336,7 +376,7 @@ class BigDigitsView extends WatchUi.WatchFace {
             return -1;
         }
         var days = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-        var doy = days[info.month - 1] + info.day;
+        var doy = days[(info.month as Lang.Number) - 1] + (info.day as Lang.Number);
         var gamma = 2.0 * Math.PI / 365.0 * (doy - 1 + (12.0 - 12.0) / 24.0);
         var eqtime = 229.18 * (0.000075 + 0.001868 * Math.cos(gamma) - 0.032077 * Math.sin(gamma)
                      - 0.014615 * Math.cos(2 * gamma) - 0.040849 * Math.sin(2 * gamma));
@@ -363,7 +403,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         if (Position has :getInfo) {
             var pos = Position.getInfo();
             if (pos != null && pos.position != null) {
-                var deg = pos.position.toDegrees();
+                var deg = (pos.position as Position.Location).toDegrees();
                 var lat = (deg[0] as Lang.Number) * 1000;
                 var lon = (deg[1] as Lang.Number) * 1000;
                 var oldLat = load("solar.lat");
@@ -480,13 +520,10 @@ class BigDigitsView extends WatchUi.WatchFace {
     // Lettres LMMJVSD pour les 7 jours de la fenetre glissante.
     // bit 0 = aujourd'hui, bit 6 = il y a six jours.
     private function weekdayLetters() as Lang.Array {
-        var names = ["L", "M", "M", "J", "V", "S", "D"];
         var out = [] as Lang.Array;
-        var dow = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day_of_week;
+        var dow = Gregorian.info(Time.now(), Time.FORMAT_SHORT).day_of_week as Lang.Number;
         for (var i = 0; i < 7; i++) {
-            var gi = (dow - 1 - i) % 7;
-            if (gi < 0) { gi += 7; }
-            out.add(names[(gi + 6) % 7]);
+            out.add(weekdayLetterFor(dow, i));
         }
         return out;
     }
@@ -550,7 +587,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         var current = "" as Lang.String;
         var word = "" as Lang.String;
         for (var i = 0; i <= text.length(); i++) {
-            var ch = i < text.length() ? text.substring(i, i + 1) : " ";
+            var ch = (i < text.length() ? text.substring(i, i + 1) : " ") as Lang.String;
             if (ch.equals(" ") || i == text.length()) {
                 if (!word.equals("")) {
                     var candidate = current.equals("") ? word : current + " " + word;
@@ -619,19 +656,19 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(C_DATE, Graphics.COLOR_TRANSPARENT);
         var cursor = x;
         for (var i = 0; i < dowStr.length(); i++) {
-            drawDateChar(dc, cursor, DATE_Y, dowStr.substring(i, i + 1));
+            drawDateChar(dc, cursor, DATE_Y, dowStr.substring(i, i + 1) as Lang.String);
             cursor += advance;
         }
 
         var dayX = x + leftW + gap;
         for (var i = 0; i < dayStr.length(); i++) {
-            var digit = dayStr.substring(i, i + 1).toNumber();
+            var digit = (dayStr.substring(i, i + 1) as Lang.String).toNumber() as Lang.Number;
             drawSegDigit(dc, dayX + i * 14, DATE_Y - 5, digit, 12, 18, 2, 8);
         }
 
         cursor = dayX + dayW + gap;
         for (var i = 0; i < monStr.length(); i++) {
-            drawDateChar(dc, cursor, DATE_Y, monStr.substring(i, i + 1));
+            drawDateChar(dc, cursor, DATE_Y, monStr.substring(i, i + 1) as Lang.String);
             cursor += advance;
         }
     }
@@ -774,14 +811,14 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         for (var i = 0; i < n; i++) {
             if (hasGroupGap && i == split) { y += groupGap; }
-            var digit = value.substring(i, i + 1).toNumber();
+            var digit = (value.substring(i, i + 1) as Lang.String).toNumber() as Lang.Number;
             drawSegDigit(dc, cx - 5, y, digit, 10, 14, 2, 6);
             y += baseLine;
         }
     }
 
     private function drawBottomStatus(dc as Graphics.Dc, seconds as Lang.Number, battText as Lang.String, phoneConnected as Lang.Boolean) as Void {
-        drawSeconds(dc, seconds);
+        if (settingFlag("face.showSeconds") != 0) { drawSeconds(dc, seconds); }
         if (phoneConnected) {
             dc.setColor(C_DATA, Graphics.COLOR_TRANSPARENT);
             dc.fillCircle(DOT_X, DOT_Y, 2);
@@ -791,13 +828,13 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     private function drawBatteryTime(dc as Graphics.Dc, x as Lang.Number, y as Lang.Number, text as Lang.String) as Void {
         dc.setColor(C_DATA, Graphics.COLOR_TRANSPARENT);
-        var last = text.substring(text.length() - 1, text.length());
+        var last = text.substring(text.length() - 1, text.length()) as Lang.String;
         if (last.equals("J") || last.equals("H")) {
-            var num = text.substring(0, text.length() - 1);
+            var num = text.substring(0, text.length() - 1) as Lang.String;
             var cursor = x;
             var numY = y + 1;
             for (var i = 0; i < num.length(); i++) {
-                var digit = num.substring(i, i + 1).toNumber();
+                var digit = (num.substring(i, i + 1) as Lang.String).toNumber() as Lang.Number;
                 drawSegDigit(dc, cursor, numY, digit, 7, 11, 1, 5);
                 cursor += 9;
             }
@@ -805,7 +842,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         } else {
             var cursor = x;
             for (var i = 0; i < text.length(); i++) {
-                drawPixelChar(dc, cursor, y + 4, text.substring(i, i + 1), 1);
+                drawPixelChar(dc, cursor, y + 4, text.substring(i, i + 1) as Lang.String, 1);
                 cursor += 6;
             }
         }

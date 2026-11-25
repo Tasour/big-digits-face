@@ -104,9 +104,26 @@ interdit dans une watch face) : le buzz est assuré par l'app compagnon
 `companion/`, voir section dédiée plus bas. Les passages sources sont archivés
 dans `docs/rag-messages.md`.
 
-Limites : textes figés à la compilation, pas de `pushView` depuis une watch
-face, pas de personnalisation des heures sans recompiler. Les 12 captures
-(8 messages + 4 variantes) sont indexées dans `docs/screens/README.md`.
+**Réglages sur la montre** : `UP/MENU` → *Cadran* → *Personnaliser* ouvre un
+menu `Menu2` avec « Secondes » et « Rappels ». Les valeurs sont persistées dans
+le stockage de la face (`face.showSeconds`, `face.showPopups`, défaut activé).
+
+Limites : pas de `pushView` depuis une watch face, pas de personnalisation des
+heures sans recompiler (prévu en P1 via `docs/architecture/ROADMAP.md`). Les
+12 captures (8 messages + 4 variantes) sont indexées dans `docs/screens/README.md`.
+
+Correctifs P0 livrés : l'historique d'habitude n'est plus effacé après un jour
+manqué (`shiftHabitBits`), le planning background utilise un `Moment` avec un
+minimum de 5 minutes, l'auto-test à 10 s a été retiré, et l'appui long suit
+l'ordre accuser → complication → test.
+
+Algorithmes affinés dans l'app : événements réels `onSleepTime`/`onWakeTime`,
+moyenne circulaire du coucher et du lever sur 7 jours, durée de nuit déduite de
+ces événements, Body Battery désormais testé par seuil (et non par simple
+présence), objectif de pas pondéré par la fenêtre lever–dodo, NSDR dont la durée
+affichée dépend de la nuit et du stress, tendance de stress sur 1 h pour Calme.
+Le score de sommeil natif n'est pas exposé par le device `fr955`
+(`docs/architecture/DATA-SOURCES.md`) : il reste `notMeasured`.
 
 ### Méthode de capture
 
@@ -180,18 +197,30 @@ découpage tronqué, avant correction de `wrapText`.
 ID dédié) qui fournit le retour haptique impossible depuis le cadran :
 
 - `Background.registerForTemporalEvent()` chaîné : un seul événement actif,
-  replanifié à chaque réveil vers le prochain créneau utile ;
-- un seul buzz court et discret `VibeProfile(60, 120)`, au plus une fois par
-  jour et par slot, sous réserve de `Attention has :vibrate` et de
-  `DeviceSettings.vibrateOn` ;
-- algorithmes raffinés par les données réservées aux watch-apps :
-  `Weather.getSunset()` pour le coucher, `SensorHistory.getStressHistory()` pour
-  NSDR et Calme, `UserProfile` pour le sommeil et le coucher ;
-- **vue diagnostic** en deux colonnes (15 métriques, ✔ vert / ✘ rouge) avec
-  test réel de chaque accès ; le bouton haut droit relance toutes les requêtes
-  puis affiche immédiatement un panneau de test répliquant le popup du cadran ;
-- le cadran a aussi son propre test : bouton haut droit quand aucun rappel
-  n'est actif → popup `Test` de 10 s (`docs/screens/app-test-panel-watch.png`).
+  replanifié vers le prochain créneau **exact**, avec gestion de minuit et des
+  fenêtres solaires ;
+- un seul buzz court `VibeProfile(60, 120)` par jour et par slot, marqué comme
+  fait **après** la tentative (pas avant), avec traçabilité « dernier événement »
+  et « dernier buzz » dans le diagnostic ;
+- si la vibration directe depuis le background est indisponible, l'app demande
+  son réveil via `Background.requestApplicationWake()` — **le SDK affiche une
+  confirmation à l'utilisateur**, ce réveil n'est donc jamais silencieux — puis
+  vibre et ouvre un popup riche au premier plan ;
+- algorithmes raffinés : `Weather.getSunset()`, tendance de stress sur 1 h et
+  Body Battery via `SensorHistory`, objectif de pas pondéré par le temps écoulé ;
+- **vue diagnostic centrée** : 15 métriques en deux colonnes, ✔ vert / ✘ rouge,
+  avec ligne « Event » et « Buzz » pour distinguer planning et vibration ;
+- **long appui milieu gauche** (`onMenu`) ouvre le panneau de test ; dans ce
+  panneau, un long appui programme un auto-test de 10 s et revient au cadran ;
+- **appui court haut droit** sur le diagnostic : buzz de test immédiat ;
+- **popup de l'app** : retourné directement par `getInitialView()` quand un
+  événement est en attente, pour que le delegate soit attaché dès l'ouverture.
+  Appui court haut droit = accuser et fermer ; bas droit et menu = fermer ;
+  fermeture automatique après 25 s par un `Timer`.
+- **cadran** : `WatchFaceDelegate.onPress()` est un **appui maintenu** — un appui
+  court n'est pas délivré à une watch face. Appui long = accuser puis fermer le
+  popup. La 955 n'a pas d'écran tactile ; `onTap` n'est utilisable qu'en mode
+  configuration du cadran sur les appareils tactiles.
 
 ```bash
 cd companion && ./build.sh
@@ -203,6 +232,17 @@ et `bigdigits-buzz-fr955.prg` (app), puis lancer **Protocoles Buzz** une fois
 pour enregistrer le premier événement temporel. Le buzz n'est pas vérifiable
 dans le simulateur Connect IQ (`notMeasured`); seule la compilation prouve
 l'enregistrement de `Attention` auprès du SDK.
+
+## Scripts de release et de vérification
+
+- `./verify.sh` — enchaîne `git diff --check`, les trois builds stricts `-l 3`,
+  le contrôle des captures et de `RELEASES.md`. Le gate tests reste `partiel`
+  tant que le simulateur ne peut pas exécuter `monkeydo -t`.
+- `./release.sh` — rebuild les trois `.prg` et écrit `RELEASES.md` avec les
+  SHA-256 et l'état de l'arbre Git.
+- `USB_DEV=/dev/bus/usb/XXX/YYY ./deploy.sh` — monte la montre via MTP,
+  sauvegarde chaque `.prg` existant en `.prev.<horodatage>`, copie les binaires,
+  vérifie les tailles puis démonte. Le rollback consiste à recopier le `.prev`.
 
 ## Compilation
 

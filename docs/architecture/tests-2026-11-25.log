@@ -1,0 +1,42 @@
+------------------------------------------------------------------------------
+Executing test habitNoGap...
+DEBUG (14:53): habitNoGap = 01
+PASS
+------------------------------------------------------------------------------
+Executing test habitThreeDaysMissing...
+DEBUG (14:53): habitThreeDaysMissing = 08
+PASS
+------------------------------------------------------------------------------
+Executing test habitSevenDaysMissing...
+DEBUG (14:53): habitSevenDaysMissing = 00
+PASS
+------------------------------------------------------------------------------
+Executing test habitClockBackward...
+DEBUG (14:53): habitClockBackward = 01
+PASS
+------------------------------------------------------------------------------
+Executing test habitFullWeek...
+DEBUG (14:53): habitFullWeek = 7c
+PASS
+------------------------------------------------------------------------------
+Executing test weekdaySunday...
+DEBUG (14:53): weekdaySunday = D
+PASS
+------------------------------------------------------------------------------
+Executing test weekdayTuesdaySequence...
+DEBUG (14:53): weekdayTuesdaySequence = MLDSVJM
+PASS
+
+==============================================================================
+RESULTS
+Test:                               Status:
+habitNoGap                          PASS
+habitThreeDaysMissing               PASS
+habitSevenDaysMissing               PASS
+habitClockBackward                  PASS
+habitFullWeek                       PASS
+weekdaySunday                       PASS
+weekdayTuesdaySequence              PASS
+Ran 7 tests
+
+PASSED (passed=7, failed=0, errors=0)

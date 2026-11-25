@@ -1,0 +1,64 @@
+# État courant — big-digits-face (2026-11-25)
+
+> Mesures brutes. Un champ sans mesure est `notMeasured`, jamais zéro.
+
+## 1. Cadrage
+
+- Cible : `/home/tasour/Work/big-digits-face`, trois artefacts : face `e9cdc5a8…` (`manifest.xml:3-9`), watch-app `f72c8dae…` (`companion/manifest.xml:3-9`), chrono `8f2c1d4a…` (`chrono/manifest.xml:2-8`).
+- Domaine : cadran de lecture instantanée + rappels de protocoles de santé sur FR955 Solar.
+- Public : porteur de la montre, français (`manifest.xml:18-21`).
+- Contraintes : 100 % local, MIP 260×260, SDK 9.3.0, installation MTP sans store (`README.md:240-245`), zéro réseau.
+
+## 2. Mesures brutes
+
+| Outil / commande | Résultat | Statut |
+|---|---|---|
+| `tools.arch.profile` | Langages : non détecté ; frameworks : non détecté ; entrées 0 ; persistance 0 ; services 0 ; CI 0 ; adaptateurs absents | `notMeasured` pour Monkey C (outils JS/SQL) |
+| `tools.arch.dependency_graph` | 34 fichiers, 0 lien local, 0 cycle ; 10 orphelins dont `README.md` et 9 `*.prg.debug.xml` | heuristique, couplage réel `notMeasured` |
+| `tools.arch.api_inventory` | 0 route | cohérent avec 100 % local |
+| `tools.arch.data_inventory` | 0 table, 0 migration, 0 signal | aveugle au store clé-valeur Monkey C |
+| `tools.arch.budget` | 1 080 611 octets cumulés ; 3 fichiers > 100 Ko, tous `bin/*.prg.debug.xml` | mesuré |
+| `wc -l` sur `.mc` | 1 829 lignes (face 871, app 581, chrono 347) | mesuré |
+| `stat -c %s` binaires | face 20 972 B ; app 14 588 B ; chrono 10 108 B | mesuré |
+| `doc/docs/Device_Reference/fr955.html` | face 131 072 B ; app/widget 786 432 B ; background/glance 65 536 B | mesuré localement |
+| `doc/Toybox/Background.html:1707` | < 5 min entre events interdit | mesuré localement |
+| `git log -1` | `62810e15c2…` 2026-11-24 ; 0 tag ; 0 SHA-256 publié | mesuré |
+| `git status` au 25/11 | `README.md`, `companion/source/BuzzApp.mc`, `source/BigDigitsView.mc` modifiés ; `docs/veille/` non suivi | mesuré |
+| `git diff --check` | rc = 0 | mesuré |
+| Compilation `-l 3` (copie /tmp, rapport QUALITÉ) | 19 erreurs face, 29 chrono, 37 app = 85 | rapport seul, non rejoué par l'arbitre |
+| Suites `(:test)` | 0 test, 0 annotation `(:test)`, 0 `Test.assert` | mesuré |
+| `apple-design-gate.sh --file source/BigDigitsView.mc` | 80 règles `notMeasured`, 5 faux positifs P1 | gate DOM inapplicable au `.mc` |
+| `System.Stats` instrumenté | absent | CPU/heap/courant `notMeasured` |
+
+## 3. Faits structurels saillants
+
+- `habitBits()` remet les bits à zéro dès qu'un jour est manqué : `source/BigDigitsView.mc:222-234`.
+- Planning background : `wait < 1 → 1` minute (`companion/source/BuzzApp.mc:189-190`) et auto-test `Duration(10)` (`:489`), tous deux sous le minimum SDK.
+- `dayIndex()` = epoch/86400 (`source/BigDigitsView.mc:218-220`, `companion/source/BuzzApp.mc:26-28`) alors que l'affichage est local.
+- `habit.app.day` écrit (`companion/source/BuzzApp.mc:465`) mais jamais lu ; app IDs distincts → Storage étanche.
+- Aucun `getSettingsView`, `Complication`, `exitTo` ni `widget` dans les sources (recherche négative).
+- `checkStorage()` (`BuzzApp.mc:256-262`) est un oracle in-band sur une clé éphémère, pas sur les clés utiles.
+- `docs/screens/app-diagnostic-simulator.png` contient une page web, pas le diagnostic : preuve invalide.
+
+## 4. Outils disponibles / absents
+
+- Disponibles : SDK 9.3.0 (`current-sdk.cfg`), `monkeyc`, `monkeydo`, simulateur `fr955`, `gio`/gvfs pour MTP, outils `arch.*` en mode plan.
+- Absents : profileur CPU/courant, oracle haptique matériel, adaptateurs `dependency-cruiser`, `madge`, `knip`, `jscpd`, `import-linter`, `deptrac`, angle `architect-api` au moment du score initial (depuis livré).
+- `notMeasured` persistant : buzz physique, appui bouton réel, autonomie, latence `Weather.getSunset()`, rôle exact de `ComplicationSubscriber` sous 9.3.0.
+- `apple-design-gate` : applicable aux captures/HTML, **N/A** sur les sources `.mc` (80 règles DOM non mesurables, faux positifs documentés).
+
+## 5. État d'exécution du P0 (2026-11-25, après corrections)
+
+| Action P0 | État | Preuve |
+|---|---|---|
+| `habitBits()` non destructif | Corrigé ; 7 tests `(:test)` ajoutés (`source/HabitTests.mc`) | build `bin/test-habits.prg` avec `-t` réussi |
+| Exécution des tests unitaires | **Bloquée** : le simulateur `fr955` se termine avec le code 255 avant que `monkeydo -t` puisse se connecter | `/tmp/ciq-tests.log` = `Unable to connect to simulator` |
+| Planning `Moment` ≥ 5 min, auto-test 10 s retiré | Corrigé | `companion/source/BuzzApp.mc:registerNext()` ; plus aucun `Duration(10)` |
+| `getSettingsView()` + `Menu2` sur la face | Ajouté (`source/FaceSettingsView.mc`), deux bascules Secondes/Rappels | `BigDigitsApp.mc:getSettingsView()` |
+| `onPress` priorisé | Ajouté ; branche complication = stub explicite en attente du bridge P1 | `source/BigDigitsView.mc:onButtonPress()` |
+| Fixture `weekdayLetters` | Extraite en `weekdayLetterFor()` + 2 tests | `source/HabitTests.mc` |
+| Gate `-l 3` | **Non vert** : 19 erreurs face, 31 compagnon mesurées après corrections (chrono à remesurer) | `monkeyc ... -l 3` |
+| Recapture du diagnostic invalide | **Bloquée** : simulateur indisponible | même cause que les tests |
+| Scripts release/deploy `.prev` | Livrés : `release.sh`, `verify.sh`, `deploy.sh`, `RELEASES.md` | `./verify.sh` |
+
+Les trois binaires de production compilent en `-r` sans erreur. **Cause simulator identifiée le 2026-11-25** : fichier verrou de singleton `~/Sim-tasour` périmé, contenant le PID d'un simulateur mort (`142726`). Le binaire sortait donc avec `exit_group(-1)` (code 255) avant toute initialisation. Preuve : `strace -f` (`openat("/home/tasour/Sim-tasour", O_WRONLY|O_CREAT|O_EXCL) = -1 EEXIST`, puis `exit_group(-1)`). Correctif : supprimer le verrou quand aucun processus `bin/simulator` n'est vivant, puis relancer. Le simulateur est de nouveau opérationnel (PID 1064373, log `Debug: SetLayout`). Le JDK 21 local et les flags Qt testés n'étaient **pas** la cause. Commande de rejeu : `strace -f -o /tmp/sim.log <SDK>/bin/simulator <prg>` puis `tail -80 /tmp/sim.log | grep Sim-tasour`.

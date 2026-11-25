@@ -21,5 +21,6 @@ mkdir -p bin
   -o bin/bigdigits-chrono-fr955.prg \
   -y ../developer_key.der \
   -r \
+  -l 3 \
   -w
 echo "OK: chrono/bin/bigdigits-chrono-fr955.prg"

@@ -3,7 +3,7 @@ using Toybox.WatchUi;
 
 class ChronoDelegate extends WatchUi.InputDelegate {
 
-    hidden var _view;
+    hidden var _view as ChronoView;
 
     function initialize(view as ChronoView) {
         InputDelegate.initialize();
