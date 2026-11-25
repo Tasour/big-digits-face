@@ -9,7 +9,7 @@ if [ -z "$USB_DEV" ]; then
 fi
 
 echo "Montage de $USB_DEV"
-gio mount -d "$USB_DEV" >/dev/null
+gio mount -d "$USB_DEV" >/dev/null 2>&1 || true  # déjà monté si le câble vient d'être branché
 
 WATCH=''
 for base in /run/user/$(id -u)/gvfs/mtp:*; do
