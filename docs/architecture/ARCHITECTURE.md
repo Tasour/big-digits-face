@@ -37,7 +37,7 @@ Mesures du 2026-11-25 : 1 829 lignes Monkey C (face 871, app 581, chrono 347). B
 | Planning | `Moment` borné ≥ 5 min | `max(wait,5)` | exactitude créneau | A |
 | Widget | glance + `System.exitTo` en P2 | widget immédiat | besoin mesuré | A différé |
 
-Détail des coûts, risques, réversibilités et options rejetées : `DECISIONS/ADR-0001…0008.md`.
+Détail des coûts, risques, réversibilités et options rejetées : `DECISIONS/ADR-0001…0008.md`. Les arbitrages ajoutés le 2026-11-25 sur les seuils et l'agrégation sont dans `DECISIONS/ADR-0009…0010.md` ; les critères sourcés du livre sont dans `protocol-criteria-from-book.md`.
 
 ## 5. Architecture cible
 

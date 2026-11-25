@@ -298,6 +298,20 @@ chrono-running.png    Chrono — en course
 chrono-hours.png      Chrono — après 1 h
 ```
 
+## Critères de protocoles et architecture
+
+Les seuils « assez / pas assez » sont documentés et sourcés dans
+`docs/architecture/protocol-criteria-from-book.md` (extraits du livre
+*Protocols*, avec identifiants de chunks). Les données réelles utilisées pour
+les confronter sont archivées dans `docs/architecture/watch-data-2026-11-25.md`.
+Le comparatif des projets équivalents et l'architecture retenue sont dans
+`docs/veille/2026-11-25-comparatif-protocoles-architecture.md` et
+`docs/architecture/DECISIONS/ADR-0009…0010.md`.
+
+Vérification : `./verify.sh` (diff, trois builds `-l 3`, 7 tests unitaires,
+captures, provenance `RELEASES.md`). Le pont face ↔ compagnon par complications
+reste un **spike** : la latence de publication sur `fr955` est `notMeasured`.
+
 ## Compatibilité
 
 - Forerunner 955 / 955 Solar

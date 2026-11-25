@@ -6,3 +6,4 @@ nombre de candidats, nombre d'idées).
 | Date | Rapport | Candidats | Idées |
 |---|---|---|---|
 | 2026-11-25 | [Contrôle total d'une Garmin depuis la montre — benchmark open source](2026-11-25-controle-total-garmin-open-source.md) | 9 analysés (12 découverts) | 20 |
+| 2026-11-25 | [Comparatif avancé — critères de protocoles et architectures de données](2026-11-25-comparatif-protocoles-architecture.md) | 12 analysés | 23 |
