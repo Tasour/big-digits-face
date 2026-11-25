@@ -127,3 +127,19 @@ Les trois binaires de production compilent en `-r` sans erreur. **Cause simulato
 - **Diagnostic relu** : `docs/screens/app-diagnostic-final-watch.png` — 14
   mesures sur deux colonnes et deux lignes d'observabilité, sans chevauchement
   ni débordement hors du cercle.
+
+## 9. Déploiement du 2026-11-25 (preuve MTP)
+
+- Device USB `091e:4fb8`, chemin `/dev/bus/usb/003/016`, montage
+  `mtp:host=091e_4fb8_0000cd371feb`.
+- Trois binaires copiés puis relus après **démontage/remontage** :
+  `bigdigits-fr955.prg` 29 548 octets, `bigdigits-buzz-fr955.prg` 27 948
+  octets, `bigdigits-chrono-fr955.prg` 10 108 octets. Tailles conformes à
+  `RELEASES.md`.
+- `GARMIN/Apps` ne contient aucun autre `.prg` : **aucune ancienne version ni
+  face tierce identifiée**, donc rien n'a été effacé. Les dossiers `DATA`,
+  `LOGS`, `MAIL`, `SETTINGS`, `TEMP` et `OUT.BIN` sont des fichiers système.
+- `CIQ_LOG.BAK` de la montre ne contient que les deux erreurs du 10:21Z
+  (avant le correctif de démarrage en fond). Aucune nouvelle entrée depuis le
+  déploiement ; l'exécution réelle sur la montre après copie n'est pas
+  mesurée ici.
