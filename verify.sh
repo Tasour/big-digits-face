@@ -34,6 +34,14 @@ else
   rc=1
 fi
 
+echo "== G4b : parite du moteur de timing =="
+if [ -x scripts/check-timing-parity.sh ]; then
+  ./scripts/check-timing-parity.sh || rc=1
+else
+  echo "KO : scripts/check-timing-parity.sh absent"
+  rc=1
+fi
+
 echo "== G4 : provenance =="
 if [ -f RELEASES.md ] && grep -q 'SHA-256' RELEASES.md; then
   echo "OK  RELEASES.md présent"

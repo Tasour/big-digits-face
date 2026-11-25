@@ -35,7 +35,7 @@ kill "$SIM_PID" 2>/dev/null || true
 [ -x "$STOP" ] && "$STOP" >/dev/null 2>&1
 
 grep -E 'Ran [0-9]+ tests|PASSED \(' "$LOG" || true
-if grep -q 'PASSED (passed=7, failed=0, errors=0)' "$LOG"; then
+if grep -qE 'PASSED \(passed=[0-9]+, failed=0, errors=0\)' "$LOG"; then
   exit 0
 fi
 exit "$rc"

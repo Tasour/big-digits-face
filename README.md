@@ -308,7 +308,30 @@ Le comparatif des projets équivalents et l'architecture retenue sont dans
 `docs/veille/2026-11-25-comparatif-protocoles-architecture.md` et
 `docs/architecture/DECISIONS/ADR-0009…0010.md`.
 
-Vérification : `./verify.sh` (diff, trois builds `-l 3`, 7 tests unitaires,
+### Timing et interaction des notifications
+
+Le moteur de timing est un module pur partagé (`shared/Timing.mc`) compilé dans
+la face, l'app et les tests. Il applique les seuils du livre aux données réelles
+quand elles existent (événements coucher/lever, pas, stress, Body Battery) et
+repli sur `UserProfile` sinon (`eventConfidence()` exige 3 couchers sur 7 jours).
+Les créneaux calculés remplacent les heures codées en dur : caféine à
+`coucher − 8 h`, écrans à `lever − 10 h` (début de la fenêtre de lumière vive à
+éviter), lumière à `lever + 30 min`, pas quand le rythme requis dépasse
+100 pas/min, NSDR selon la dette 7 nuits.
+
+Sur le FR955, **il n'y a pas d'écran tactile** et `WatchFaceDelegate.onPress()`
+est un appui maintenu : le cadran ne reçoit jamais d'appui court. Le mapping
+retenu (ADR-0012) est donc :
+
+- **appui long sur le cadran** : coche la case du jour et ferme le popup ;
+- **accusé rapide** : uniquement dans l'app compagnon (`PopupDelegate.onPress`),
+  sans cocher, ou par expiration automatique ;
+- **durée d'affichage** : 1 h maximum pour un rappel protocole, 10 s pour le
+  panneau de test ; une seule notification par catégorie et par jour ;
+- **apprentissage** : validé tard → rappel 15 min plus tôt le lendemain, accusé
+  rapide → 15 min plus tard, expiration → inchangé.
+
+Vérification : `./verify.sh` (diff, trois builds `-l 3`, **22 tests unitaires**,
 captures, provenance `RELEASES.md`). Le pont face ↔ compagnon par complications
 reste un **spike** : la latence de publication sur `fr955` est `notMeasured`.
 

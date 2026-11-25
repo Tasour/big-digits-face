@@ -28,6 +28,10 @@ var gLastEvent as Lang.String = "aucun";
 var gLastBuzz as Lang.String = "aucun";
 (:background)
 var gPending as Lang.Number = 0;
+(:background)
+var gEvents as Lang.Number = 0;
+(:background)
+var gReason as Lang.String = "aucun";
 
 (:background)
 function dayIndex() as Lang.Number {
@@ -99,9 +103,54 @@ function dayMinutes() as Lang.Number {
     return now.hour * 60 + now.min;
 }
 
+// Confiance : au moins trois couchers réels sur sept jours. En dessous,
+// on utilise les heures configurées (UserProfile) et on le dit dans le diagnostic.
+(:background)
+function bedEventCount() as Lang.Number {
+    var today = dayIndex();
+    var n = 0;
+    for (var i = 0; i < 7; i++) {
+        var v = App.Storage.getValue("sleep.bed." + (today - i).format("%d"));
+        if (v != null && v instanceof Lang.Number) { n++; }
+    }
+    return n;
+}
+
+(:background)
+function eventConfidence() as Lang.Boolean {
+    return bedEventCount() >= 3;
+}
+
+(:background)
+function confidentAverage(prefix as Lang.String) as Lang.Number or Null {
+    if (!eventConfidence()) { return null; }
+    return averageMinutes(prefix);
+}
+
+(:background)
+function nightDurations() as Lang.Array {
+    var out = [] as Lang.Array;
+    var today = dayIndex();
+    for (var i = 1; i <= 7; i++) {
+        var bed = App.Storage.getValue("sleep.bed." + (today - i).format("%d"));
+        var wake = App.Storage.getValue("sleep.wake." + (today - i + 1).format("%d"));
+        if (bed == null || wake == null) { continue; }
+        if (!(bed instanceof Lang.Number) || !(wake instanceof Lang.Number)) { continue; }
+        var d = (wake as Lang.Number) - (bed as Lang.Number);
+        if (d < 0) { d += TIMING_DAY; }
+        if (d > 0 && d <= 900) { out.add(d as Lang.Number); }
+    }
+    return out;
+}
+
+(:background)
+function sleepDebt() as Lang.Number {
+    return timingDebt7(nightDurations(), TIMING_SLEEP_MIN as Lang.Number);
+}
+
 (:background)
 function wakeMinute() as Lang.Number {
-    var avg = averageMinutes("sleep.wake.");
+    var avg = confidentAverage("sleep.wake.");
     if (avg != null) { return avg as Lang.Number; }
     var p = UserProfile.getProfile();
     if (p != null && p has :upcomingWakeTime && p.upcomingWakeTime != null) {
@@ -113,7 +162,7 @@ function wakeMinute() as Lang.Number {
 
 (:background)
 function bedMinutes() as Lang.Number {
-    var avg = averageMinutes("sleep.bed.");
+    var avg = confidentAverage("sleep.bed.");
     if (avg != null) { return avg as Lang.Number; }
     var p = UserProfile.getProfile();
     if (p != null && p has :upcomingSleepTime && p.upcomingSleepTime != null) {
@@ -191,11 +240,71 @@ function stressTrend() as Lang.Number {
     return total / n;
 }
 
+// Baseline robuste : mediane + MAD sur les echantillons disponibles.
+(:background)
+function sortNumbers(values as Lang.Array) as Lang.Array {
+    for (var i = 1; i < values.size(); i++) {
+        var v = values[i] as Lang.Number;
+        var j = i - 1;
+        while (j >= 0 && (values[j] as Lang.Number) > v) {
+            values[j + 1] = values[j];
+            j--;
+        }
+        values[j + 1] = v;
+    }
+    return values;
+}
+
+(:background)
+function medianOf(values as Lang.Array) as Lang.Number {
+    var n = values.size();
+    if (n == 0) { return 0; }
+    var sorted = sortNumbers(values);
+    var mid = n / 2;
+    if (n % 2 == 0) {
+        return ((sorted[mid - 1] as Lang.Number) + (sorted[mid] as Lang.Number)) / 2;
+    }
+    return sorted[mid] as Lang.Number;
+}
+
+(:background)
+function stressBaseline() as Lang.Dictionary {
+    var vals = [] as Lang.Array;
+    if (Toybox has :SensorHistory && SensorHistory has :getStressHistory) {
+        var it = SensorHistory.getStressHistory({:period => new Time.Duration(86400)});
+        if (it != null) {
+            for (var i = 0; i < 20; i++) {
+                var s = it.next();
+                if (s == null || s.data == null) { break; }
+                vals.add(s.data as Lang.Number);
+            }
+        }
+    }
+    if (vals.size() < 10) { return {:ok => false, :median => 0, :mad => 0, :n => vals.size()}; }
+    var med = medianOf(vals);
+    var dev = [] as Lang.Array;
+    for (var i = 0; i < vals.size(); i++) {
+        var d = (vals[i] as Lang.Number) - med;
+        dev.add(d < 0 ? -d : d as Lang.Number);
+    }
+    return {:ok => true, :median => med, :mad => medianOf(dev), :n => vals.size()};
+}
+
+(:background)
+function stressZ() as Lang.Number {
+    var base = stressBaseline();
+    if (!(base[:ok] as Lang.Boolean)) { return 0; }
+    return timingRobustZ(recentStress(), base[:median] as Lang.Number,
+                         base[:mad] as Lang.Number);
+}
+
 (:background)
 function sleepShort() as Lang.Boolean {
+    var d = sleepDurationMinutes();
+    if (d != null) { return (d as Lang.Number) < TIMING_SLEEP_MIN; }
     var p = UserProfile.getProfile();
     if (p == null || !(p has :sleepTime) || p.sleepTime == null) { return false; }
-    return (p.sleepTime as Time.Duration).value() < 420 * 60;
+    return (p.sleepTime as Time.Duration).value() < TIMING_SLEEP_MIN * 60;
 }
 
 (:background)
@@ -233,10 +342,14 @@ function stepsShort() as Lang.Boolean {
 function registerNext() as Void {
     var now = dayMinutes();
     var bed = bedMinutes();
+    var wake = wakeMinute();
     var sun = sunsetMinutes();
-    var cands = [wakeMinute(), 420, 540, 750, 840, 1020, 1050,
-                 sun - 2, sun, sun + 2, 1110, 1260, 1320, 1350,
-                 bed - 480, bed - 60] as Lang.Array;
+    var cands = [nextTime(700, timingLightStart(wake)), 750,
+                 nextTime(1500, timingCaffeine(bed)),
+                 sun - 2, sun, sun + 2,
+                 nextTime(1830, 1110), nextTime(2100, timingMod(wake + 30)),
+                 nextTime(2200, timingScreenStart(wake)),
+                 2230, timingMod(bed - 60)] as Lang.Array;
 
     for (var i = 1; i < cands.size(); i++) {
         var v = cands[i] as Lang.Number;
@@ -294,46 +407,83 @@ function doBuzz(slot as Lang.Number, once as Lang.Boolean) as Lang.Boolean {
     return true;
 }
 
+// Un seul rappel par categorie et par jour local.
+(:background)
+function alreadyNotified(slot as Lang.Number) as Lang.Boolean {
+    return loadNumber("notif.day." + slot.format("%d")) == dayIndex();
+}
+
+(:background)
+function markNotified(slot as Lang.Number) as Void {
+    App.Storage.setValue("notif.day." + slot.format("%d"), dayIndex());
+}
+
+(:background)
+function recordOutcome(slot as Lang.Number, base as Lang.Number, outcome as Lang.Symbol) as Void {
+    var next = timingHysteresis(base, outcome);
+    App.Storage.setValue("notif.next." + slot.format("%d"), next);
+}
+
+(:background)
+function nextTime(slot as Lang.Number, base as Lang.Number) as Lang.Number {
+    var v = loadNumber("notif.next." + slot.format("%d"));
+    return v == 0 ? base : v;
+}
+
+(:background)
+function buildContext() as Lang.Dictionary {
+    var info = ActivityMonitor.getInfo();
+    var steps = 0;
+    var goal = 0;
+    if (info != null) {
+        if (info.steps != null) { steps = info.steps as Lang.Number; }
+        if (info.stepGoal != null) { goal = info.stepGoal as Lang.Number; }
+    }
+    var wake = wakeMinute();
+    var bed = bedMinutes();
+    var span = bed - wake;
+    if (span <= 0) { span += TIMING_DAY; }
+    if (span <= 0 || span > 1200) { span = 720; }
+    var elapsed = dayMinutes() - wake;
+    if (elapsed < 0) { elapsed = 0; }
+    if (elapsed > span) { elapsed = span; }
+    var bb = sensorSample(:bodybattery);
+    var bbn = bb == null ? 100 : bb as Lang.Number;
+    var d = sleepDurationMinutes();
+    return {
+        :now => dayMinutes(), :bed => bed, :wake => wake,
+        :steps => steps, :goal => goal, :stressZ => stressZ(), :bb => bbn,
+        :debt => sleepDebt(), :shortNight => (d != null && (d as Lang.Number) < TIMING_SLEEP_MIN),
+        :sunset => sunsetMinutes(), :span => span, :elapsed => elapsed
+    } as Lang.Dictionary;
+}
+
 (:background)
 function evaluateSlot() as Lang.Number {
-    var now = dayMinutes();
-    var h = now / 60;
-    var m = now % 60;
-    var trend = stressTrend();
-    var sd = now - sunsetMinutes();
-    if (sd < 0) { sd = -sd; }
-
-    if (wakeWindow(now)) { return 700; }
-    if (h == 12 && m >= 30 && m < 31) { return 1230; }
-    if (nearBed(480, now)) { return 1500; }
-    if (sd <= 2) { return 1730; }
-    if (h == 18 && m >= 30 && m < 31 && stepsShort()) { return 1830; }
-    var bb = sensorSample(:bodybattery);
-    if (trend > 50 || (bb != null && (bb as Lang.Number) < 30) ||
-        (sleepShort() && h >= 10 && h <= 16)) { return 2100; }
-    if (nearBed(60, now)) { return 2200; }
-    if (h == 22 && m >= 30 && m < 31 && trend > 40) { return 2230; }
-    return -1;
+    var r = timingChooseSlot(buildContext());
+    var slot = r[:slot] as Lang.Number;
+    if (slot < 0 || alreadyNotified(slot)) { return -1; }
+    markNotified(slot);
+    App.Storage.setValue("diag.slot.reason", r[:reason] as Lang.String);
+    return slot;
 }
 
 (:background)
 function messageForSlot(slot as Lang.Number) as Lang.String {
-    if (slot == 700) { return "Part regarder le lever de soleil"; }
-    if (slot == 1230) { return "Marche 5-10 min apres le repas"; }
-    if (slot == 1500) { return "Plus de cafeine ni d'alcool ce soir"; }
-    if (slot == 1730) { return "Part regarder le coucher de soleil"; }
-    if (slot == 1830) { return "Marche 5 min, pas assez"; }
-    if (slot == 2100) {
-        var d = sleepDurationMinutes();
-        var bb = sensorSample(:bodybattery);
-        if ((d != null && (d as Lang.Number) < 360) ||
-            (bb != null && (bb as Lang.Number) < 25)) { return "30 min de repos, nuit courte"; }
-        if (stressTrend() > 60) { return "20 min de repos, stress eleve"; }
-        return "10 min de repos, reset court";
-    }
-    if (slot == 2200) { return "Ecrans off 1 h avant le coucher"; }
-    if (slot == 2230) { return "1-3 soupirs physiologiques"; }
-    return "Panneau de test";
+    var reason = loadString("diag.slot.reason");
+    var msg = "Rappel";
+    if (slot == 700) { msg = "Part regarder le lever de soleil"; }
+    else if (slot == 1230) { msg = "Marche 5-10 min apres le repas"; }
+    else if (slot == 1500) { msg = "Plus de cafeine ni d'alcool ce soir"; }
+    else if (slot == 1730) { msg = "Part regarder le coucher de soleil"; }
+    else if (slot == 1830) { msg = "Marche 5 min, pas assez"; }
+    else if (slot == 2100) {
+        msg = timingNsdrMinutes(sleepDebt(), stressZ()).format("%d") + " min de repos";
+    } else if (slot == 2200) { msg = "Ecrans off avant le coucher"; }
+    else if (slot == 2230) { msg = "1-3 soupirs physiologiques"; }
+    else { return "Panneau de test"; }
+    if (reason.equals("aucun")) { return msg; }
+    return msg + " (" + reason + ")";
 }
 
 // --- Diagnostic ------------------------------------------------------------
@@ -371,6 +521,8 @@ function refreshMetrics() as Void {
     gLastEvent = loadString("diag.lastevent");
     gLastBuzz = loadString("diag.lastbuzz");
     gPending = loadNumber("diag.pending");
+    gEvents = bedEventCount();
+    gReason = loadString("diag.slot.reason");
 
     gMetrics = [
         ["Horloge", System.getClockTime() != null],
@@ -386,7 +538,6 @@ function refreshMetrics() as Void {
         ["Stress 1h", sensorSample(:stress) != null],
         ["Battery", sensorSample(:bodybattery) != null],
         ["Buzz", Attention has :vibrate],
-        ["Background", Background has :registerForTemporalEvent],
         ["Stockage", checkStorage()]
     ] as Lang.Array;
 }
@@ -457,10 +608,10 @@ class DiagView extends Ui.View {
         dc.drawText(130, by + 18, Graphics.FONT_SMALL, "DIAGNOSTIC", justify);
         for (var i = 0; i < gMetrics.size(); i++) {
             var row = gMetrics[i] as Lang.Array;
-            var col = i / 8;
-            var idx = i % 8;
+            var col = i / 7;
+            var idx = i % 7;
             var x = col == 0 ? 30 : 142;
-            var y = by + 37 + idx * 14;
+            var y = by + 35 + idx * 11;
             drawGlyph(dc, x, y, row[1] as Lang.Boolean);
             dc.drawText(x + 12, y, Graphics.FONT_SYSTEM_XTINY, row[0] as Lang.String,
                         Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -468,10 +619,12 @@ class DiagView extends Ui.View {
 
         // Observabilite sous le bloc.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(130, 212, Graphics.FONT_SYSTEM_XTINY,
-                    "Event: " + gLastEvent, justify);
-        dc.drawText(130, 226, Graphics.FONT_SYSTEM_XTINY,
+        dc.drawText(130, 176, Graphics.FONT_SYSTEM_XTINY,
+                    "Event: " + gEvents.format("%d") + "/7 " + gLastEvent, justify);
+        dc.drawText(130, 187, Graphics.FONT_SYSTEM_XTINY,
                     "Buzz: " + gLastBuzz + (gPending == 1 ? " / attente" : ""), justify);
+        dc.drawText(130, 197, Graphics.FONT_SYSTEM_XTINY,
+                    "Raison: " + gReason, justify);
     }
 }
 
@@ -525,6 +678,7 @@ class PopupView extends Ui.View {
 
     function closePopup() as Void {
         if (closeTimer != null) { closeTimer.stop(); closeTimer = null; }
+        recordOutcome(loadNumber("diag.slot.id"), loadNumber("diag.slot.base"), :none);
         Ui.popView(Ui.SLIDE_IMMEDIATE);
     }
 
@@ -553,8 +707,9 @@ class PopupDelegate extends Ui.BehaviorDelegate {
         BehaviorDelegate.initialize();
     }
 
+    // Appui court : accuser sans cocher la case, et decaler le prochain rappel.
     function onPress() as Lang.Boolean {
-        App.Storage.setValue("habit.app.day", dayIndex());
+        recordOutcome(loadNumber("diag.slot.id"), loadNumber("diag.slot.base"), :dismissed);
         Ui.popView(Ui.SLIDE_IMMEDIATE);
         return true;
     }
@@ -631,6 +786,8 @@ class BuzzDelegate extends System.ServiceDelegate {
         App.Storage.setValue("diag.lastevent", gLastEvent);
         gPending = 1;
         App.Storage.setValue("diag.pending", 1);
+        App.Storage.setValue("diag.slot.id", 700);
+        App.Storage.setValue("diag.slot.base", dayMinutes());
         App.Storage.setValue("diag.pending.msg", "Part regarder le lever de soleil");
         Background.requestApplicationWake("Protocoles Buzz");
         Background.exit(null);
@@ -643,6 +800,8 @@ class BuzzDelegate extends System.ServiceDelegate {
         if (slot >= 0) {
             gPending = 1;
             App.Storage.setValue("diag.pending", 1);
+            App.Storage.setValue("diag.slot.id", slot);
+            App.Storage.setValue("diag.slot.base", dayMinutes());
             App.Storage.setValue("diag.pending.msg", messageForSlot(slot));
             Background.requestApplicationWake("Protocoles Buzz");
         }
@@ -670,7 +829,7 @@ class BuzzApp extends App.AppBase {
             var msg = loadString("diag.pending.msg");
             App.Storage.setValue("diag.pending", 0);
             gPending = 0;
-            doBuzz(9997, false);
+            doBuzz(loadNumber("diag.slot.id"), true);
             return [new PopupView(msg), new PopupDelegate()];
         }
         return [new DiagView(), new DiagDelegate()];

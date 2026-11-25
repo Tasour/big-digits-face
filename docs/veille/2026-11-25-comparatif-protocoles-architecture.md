@@ -173,7 +173,7 @@ intégralement dans le corpus Synthetix local, 1 584 chunks) :
 | Sommeil | 7–9 h ; placement régulier sur 24 h | `chunk_361`, `chunk_250`, `chunk_252` | `sleepTime < 420 min` conforme (`BuzzApp.mc:195-200`) |
 | Lumière matinale | 5–10 min dans les 30–60 min après le lever | `chunk_101` | slot fixe 07:00 (`BuzzApp.mc:306`) |
 | Caféine | 8–10 h avant le coucher, 12 h si sensible | `chunk_399`, `chunk_414` | `bed − 480` = 8 h, borne tardive (`BuzzApp.mc:308`) |
-| Écrans | lumière vive à éviter de `lever − 8 h` à `lever − 2 h` | `chunk_209`, `chunk_211` | `bed − 60` = 22 h 24, **2 h trop tard** (`BuzzApp.mc:316`) |
+| Écrans | lumière vive à éviter de `tempMin − 8 h` (= `lever − 10 h`) à `tempMin` (= `lever − 2 h`) | `chunk_209`, `chunk_211` | `bed − 60` = 22 h 24, **2 h trop tard** (`BuzzApp.mc:316`) |
 | NSDR | 10–30 min, 1×/jour ; jamais substitut de sommeil | `chunk_982`, `chunk_366` | 30/20/10/10 dans la plage, libellé à corriger |
 | Calme | 1–3 soupirs immédiats ; 5 min cycliques en prévention | `chunk_904`, `chunk_914` | slot 22:30 conditionné au stress (`BuzzApp.mc:312`) |
 | Pas | 7 000 objectif basal, 10 000 optimal | `chunk_574`, `chunk_576`, `chunk_578` | objectif pondéré par fenêtre, heuristique locale (`BuzzApp.mc:214-229`) |

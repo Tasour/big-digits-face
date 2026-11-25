@@ -85,7 +85,7 @@ class BigDigitsView extends WatchUi.WatchFace {
     const POP_Y = 61;
     const POP_W = 220;
     const POP_H = 138;
-    const POP_MS = 25000;
+    const POP_MS = TIMING_POPUP_MS;
 
     // Tokens de couleur par categorie (U19) — valeurs CIQ, pas de volatiles.
     const C_BORDER_LUMIERE = Graphics.COLOR_ORANGE;
@@ -272,6 +272,9 @@ class BigDigitsView extends WatchUi.WatchFace {
         var bits = habitBits(activeKey) | 1;
         store(k, bits);
         store(kd, today);
+        var baseKey = "notif.base." + activeKey.format("%d");
+        store("notif.next." + activeKey.format("%d"),
+              timingHysteresis(load(baseKey), :done));
         activeBits = bits;
         popupStart = Time.now().value() * 1000;
         WatchUi.requestUpdate();
@@ -302,6 +305,12 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     private function setPopup(key as Lang.Number, title as Lang.String, msg as Lang.String, ctx as Lang.String, color as Lang.Number) as Void {
         if (key == activeKey) { return; }
+        var seenKey = "face.notif." + key.format("%d");
+        if (key != 9999 && load(seenKey) == dayIndex()) { return; }
+        if (key != 9999) {
+            store(seenKey, dayIndex());
+            store("notif.base." + key.format("%d"), nowDayMinutes());
+        }
         activeKey = key;
         activeTitle = title;
         activeMsg = msg;
@@ -351,24 +360,52 @@ class BigDigitsView extends WatchUi.WatchFace {
         return delta >= targetMinutesBefore - 2 && delta <= targetMinutesBefore + 2;
     }
 
-    private function wakeWindow(nowMin as Lang.Number) as Lang.Boolean {
+    private function faceBed() as Lang.Number {
         var profile = UserProfile.getProfile();
-        if (profile == null) { return false; }
-        var wake = -1;
-        if (profile has :upcomingWakeTime) {
-            wake = minutesOfMoment(profile.upcomingWakeTime);
+        if (profile != null && profile has :upcomingSleepTime) {
+            var m = minutesOfMoment(profile.upcomingSleepTime);
+            if (m >= 0) { return m; }
         }
-        if (wake < 0) { return false; }
-        var delta = nowMin - wake;
-        return delta >= 0 && delta <= 30 && sleepMinutes() < 420;
+        return timingMod(1380 - sleepMinutes());
+    }
+
+    private function faceWake() as Lang.Number {
+        var profile = UserProfile.getProfile();
+        if (profile != null && profile has :upcomingWakeTime) {
+            var m = minutesOfMoment(profile.upcomingWakeTime);
+            if (m >= 0) { return m; }
+        }
+        return 420;
+    }
+
+    private function wakeWindow(nowMin as Lang.Number) as Lang.Boolean {
+        return timingAt(nowMin, timingLightStart(faceWake())) && sleepMinutes() < TIMING_SLEEP_MIN;
     }
 
     private function isSteppingShort(steps as Lang.Number, goal as Lang.Number) as Lang.Boolean {
-        if (goal <= 0) { return steps < 7000; }
-        return steps < goal * 0.85;
+        var wake = faceWake();
+        var bed = faceBed();
+        var span = bed - wake;
+        if (span <= 0) { span += TIMING_DAY; }
+        if (span <= 0 || span > 1200) { span = 720; }
+        var elapsed = nowDayMinutes() - wake;
+        if (elapsed < 0) { elapsed = 0; }
+        if (elapsed > span) { elapsed = span; }
+        var target = goal > 0 ? goal : TIMING_STEP_BASE;
+        return timingStepRate(steps, target, span - elapsed) > TIMING_STEP_RATE_MAX;
     }
 
-    // Calcul solaire NOAA简化：declinaison + heure du coucher, position en cache.
+    private function nowDayMinutes() as Lang.Number {
+        var clock = System.getClockTime();
+        return clock.hour * 60 + clock.min;
+    }
+
+    private function faceNextTime(slot as Lang.Number, base as Lang.Number) as Lang.Number {
+        var v = load("notif.next." + slot.format("%d"));
+        return v == 0 ? base : v;
+    }
+
+    // Calcul solaire NOAA simplifie : declinaison + heure du coucher, position en cache.
     private function sunsetMinutes(info as Gregorian.Info) as Lang.Number {
         var lat = load("solar.lat") / 1000.0;
         var lon = load("solar.lon") / 1000.0;
@@ -446,24 +483,24 @@ class BigDigitsView extends WatchUi.WatchFace {
         var nowMin = hour * 60 + minute;
         var profile = UserProfile.getProfile();
 
-        // 07:00 — Reveil / lumiere, declenche par l'heure de reveal configuree.
-        if (wakeWindow(nowMin)) {
+        // Lever + 30 min — lumiere matinale (chunk_101).
+        if (timingAt(nowMin, faceNextTime(700, timingLightStart(faceWake()))) && sleepMinutes() < TIMING_SLEEP_MIN) {
             setPopup(700, res(Rez.Strings.Pup07Title), res(Rez.Strings.Pup07Msg),
-                     res(Rez.Strings.Pup07Ctx), C_BORDER_LUMIERE);
+                     "Lever " + timingHHMM(faceWake()) + " + 30 min", C_BORDER_LUMIERE);
             return;
         }
 
-        // 12:30 — Marche apres repas (non mesure : creneau fixe, marque如 tel).
+        // 12:30 — Marche apres repas (heure non mesurable : creneau fixe documente).
         if (hour == 12 && minute >= 30 && minute < 31) {
             setPopup(1230, res(Rez.Strings.Pup1230Title), res(Rez.Strings.Pup1230Msg),
                      res(Rez.Strings.Pup1230Ctx), C_BORDER_MARCHE);
             return;
         }
 
-        // Coucher - 8 h — Cafeine / alcool, deriver de l'heure de coucher.
-        if (nearBed(480, nowMin)) {
+        // Coucher - 8 h — Cafeine / alcool (chunk_399), heure de repli UserProfile.
+        if (timingAt(nowMin, faceNextTime(1500, timingCaffeine(faceBed())))) {
             setPopup(1500, res(Rez.Strings.Pup15Title), res(Rez.Strings.Pup15Msg),
-                     res(Rez.Strings.Pup15Ctx), C_BORDER_STIMULANTS);
+                     "Coucher " + timingHHMM(faceBed()) + " - 8 h", C_BORDER_STIMULANTS);
             return;
         }
 
@@ -484,10 +521,10 @@ class BigDigitsView extends WatchUi.WatchFace {
             return;
         }
 
-        // 18:30 — Pas : 85 % du stepGoal.
-        if (hour == 18 && minute >= 30 && minute < 31 && isSteppingShort(steps, goal)) {
+        // Pas : rythme requis superieur a 100 pas/min (heuristique documentee).
+        if (isSteppingShort(steps, goal)) {
             setPopup(1830, res(Rez.Strings.Pup18Title), res(Rez.Strings.Pup18Msg),
-                     res(Rez.Strings.Pup18Ctx), C_BORDER_MARCHE);
+                     "Rythme requis > 100 pas/min", C_BORDER_MARCHE);
             return;
         }
 
@@ -498,17 +535,17 @@ class BigDigitsView extends WatchUi.WatchFace {
             return;
         }
 
-        // Coucher - 1 h — Ecrans.
-        if (nearBed(60, nowMin)) {
+        // Lever - 10 h — fenetre de lumiere vive a eviter (chunk_211).
+        if (timingAt(nowMin, faceNextTime(2200, timingScreenStart(faceWake())))) {
             setPopup(2200, res(Rez.Strings.Pup22Title), res(Rez.Strings.Pup22Msg),
-                     res(Rez.Strings.Pup22Ctx), C_BORDER_ECRANS);
+                     "Lever " + timingHHMM(faceWake()) + " - 10 h", C_BORDER_ECRANS);
             return;
         }
 
-        // 22:30 — Soupirs : stress eleve.
-        if (hour == 22 && minute >= 30 && minute < 31 && stress > 40) {
+        // Soupirs : evenement de stress, pas un creneau fixe (chunk_914).
+        if (stress > 40 && timingWindow(nowMin, 1140, 240)) {
             setPopup(2230, res(Rez.Strings.Pup2230Title), res(Rez.Strings.Pup2230Msg),
-                     res(Rez.Strings.Pup2230Ctx), C_BORDER_CALME);
+                     "Stress eleve", C_BORDER_CALME);
             return;
         }
 
@@ -553,6 +590,14 @@ class BigDigitsView extends WatchUi.WatchFace {
             dc.drawText(centerX, lineY, Graphics.FONT_SYSTEM_XTINY, part, justify);
             lineY += 20;
         }
+
+        // Raison du timing et temps restant avant expiration (C6/C7).
+        var reason = activeCtx.length() > 28 ? activeCtx.substring(0, 28) : activeCtx;
+        var leftMs = TIMING_POPUP_MS - (Time.now().value() * 1000 - popupStart);
+        var leftH = leftMs / 3600000 + 1;
+        if (leftMs <= 0) { leftH = 0; }
+        dc.drawText(centerX, POP_Y + 86, Graphics.FONT_SYSTEM_XTINY,
+                    reason + " · " + leftH.format("%d") + "h", justify);
 
         // Barre de 7 carres avec la lettre du jour concerne au centre.
         var side = 30;

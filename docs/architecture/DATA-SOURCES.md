@@ -23,6 +23,26 @@ Matrice vérifiée dans le SDK Connect IQ 9.3.0 installé. `face` = watch face,
 | Calories, étages, minutes actives | `ActivityMonitor.Info` | oui | oui | contexte |
 | Position | `Position.getInfo()` (permissions) | oui (`getInfo`) | oui | NOAA |
 
+## Champs horodatés exploitables pour le timing (2026-11-25)
+
+| Champ | Source réelle | Portée | Confiance |
+|---|---|---|---|
+| `sleep.bed.<jour>` | `Background.registerForSleepEvent()` | app compagnon | événement réel, 1/jour |
+| `sleep.wake.<jour>` | `Background.registerForWakeEvent()` | app compagnon | événement réel, 1/jour |
+| Durée de nuit | différence bed→wake | app compagnon | déduite, pas un score natif |
+| `ActivityMonitor.Info.steps` / `stepGoal` | capteur | face + app | réel |
+| `stressScore` + `getStressHistory()` | capteur | face (instantané) / app (1 h) | réel |
+| `getBodyBatteryHistory()` | capteur | app | réel |
+| `upcomingWakeTime` / `sleepTime` | `UserProfile` | face + app | **repli**, pas une mesure |
+| `Weather.getSunset()` | téléphone + NOAA | app | réel si position dispo |
+| Appui long | `WatchFaceDelegate.onPress()` = « touch and hold » (SDK 9.3.0) | face | seul geste reçu par le cadran |
+| Appui court | `BehaviorDelegate.onPress()` | app compagnon | seul geste qui accuse sans cocher |
+
+Le FR955 n'a **pas d'écran tactile** : `onTap` n'est utilisable qu'en mode
+configuration sur appareil tactile (`README.md:215-219`). Le cadran ne reçoit
+donc jamais d'appui court : l'accusé rapide se fait dans l'app compagnon ou par
+expiration à 1 h.
+
 ## Contraintes
 
 - `Application.Storage` est propre à un app ID : aucun partage face ↔ app.
