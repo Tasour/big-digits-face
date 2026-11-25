@@ -1,30 +1,202 @@
 ------------------------------------------------------------------------------
 Executing test habitNoGap...
-DEBUG (14:53): habitNoGap = 01
+DEBUG (20:42): habitNoGap = 01
 PASS
 ------------------------------------------------------------------------------
 Executing test habitThreeDaysMissing...
-DEBUG (14:53): habitThreeDaysMissing = 08
+DEBUG (20:42): habitThreeDaysMissing = 08
 PASS
 ------------------------------------------------------------------------------
 Executing test habitSevenDaysMissing...
-DEBUG (14:53): habitSevenDaysMissing = 00
+DEBUG (20:42): habitSevenDaysMissing = 00
 PASS
 ------------------------------------------------------------------------------
 Executing test habitClockBackward...
-DEBUG (14:53): habitClockBackward = 01
+DEBUG (20:42): habitClockBackward = 01
 PASS
 ------------------------------------------------------------------------------
 Executing test habitFullWeek...
-DEBUG (14:53): habitFullWeek = 7c
+DEBUG (20:42): habitFullWeek = 7c
 PASS
 ------------------------------------------------------------------------------
 Executing test weekdaySunday...
-DEBUG (14:53): weekdaySunday = D
+DEBUG (20:42): weekdaySunday = D
 PASS
 ------------------------------------------------------------------------------
 Executing test weekdayTuesdaySequence...
-DEBUG (14:53): weekdayTuesdaySequence = MLDSVJM
+DEBUG (20:42): weekdayTuesdaySequence = MLDSVJM
+PASS
+------------------------------------------------------------------------------
+Executing test snapSize...
+DEBUG (20:42): snapSize=62
+PASS
+------------------------------------------------------------------------------
+Executing test snapCrcValid...
+DEBUG (20:42): snapCrcValid=true
+PASS
+------------------------------------------------------------------------------
+Executing test snapCrcRejectsBitFlip...
+DEBUG (20:42): snapBitFlip=false
+PASS
+------------------------------------------------------------------------------
+Executing test snapRoundtripAlarm...
+DEBUG (20:42): snapAlarm=390
+PASS
+------------------------------------------------------------------------------
+Executing test snapRoundtripSteps...
+DEBUG (20:42): snapSteps=12345
+PASS
+------------------------------------------------------------------------------
+Executing test snapRoundtripTimestamp...
+DEBUG (20:42): snapTs=1764100000
+PASS
+------------------------------------------------------------------------------
+Executing test snapRoundtripDaySeq...
+DEBUG (20:42): snapDay=20450 seq=7
+PASS
+------------------------------------------------------------------------------
+Executing test snapMissingIsMinusOne...
+DEBUG (20:42): snapMissing=-1/-1/-1
+PASS
+------------------------------------------------------------------------------
+Executing test snapZeroIsNotMissing...
+DEBUG (20:42): snapZero=0
+PASS
+------------------------------------------------------------------------------
+Executing test snapRejectsTruncated...
+DEBUG (20:42): snapTruncated=null
+PASS
+------------------------------------------------------------------------------
+Executing test corrValidAccepted...
+DEBUG (20:42): corrNeed=480 nsdr=20
+PASS
+------------------------------------------------------------------------------
+Executing test corrArrayAccepted...
+DEBUG (20:42): corrArray=ok
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsVersion...
+DEBUG (20:42): corrVersion=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsLength...
+DEBUG (20:42): corrLength=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsCrc...
+DEBUG (20:42): corrCrc=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsExpired...
+DEBUG (20:42): corrExpired=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsMinute...
+DEBUG (20:42): corrMinute=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsNsdrValue...
+DEBUG (20:42): corrNsdr=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsNull...
+DEBUG (20:42): corrNull=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test corrRejectsWrongType...
+DEBUG (20:42): corrType=rejete
+PASS
+------------------------------------------------------------------------------
+Executing test timingWrap...
+DEBUG (20:42): timingWrap = 1380
+PASS
+------------------------------------------------------------------------------
+Executing test timingCircular...
+DEBUG (20:42): timingCircular = 0
+PASS
+------------------------------------------------------------------------------
+Executing test timingTempAt...
+DEBUG (20:42): timingTempAt = 265
+PASS
+------------------------------------------------------------------------------
+Executing test timingScreenAt...
+DEBUG (20:42): timingScreenAt = 1225
+PASS
+------------------------------------------------------------------------------
+Executing test timingCaffeineAt...
+DEBUG (20:42): timingCaffeineAt = 924
+PASS
+------------------------------------------------------------------------------
+Executing test timingDebt...
+DEBUG (20:42): timingDebt = 161
+PASS
+------------------------------------------------------------------------------
+Executing test timingZNoBaseline...
+DEBUG (20:42): timingZNoBaseline = 0
+PASS
+------------------------------------------------------------------------------
+Executing test timingZPositive...
+DEBUG (20:42): timingZPositive = 2
+PASS
+------------------------------------------------------------------------------
+Executing test timingStepNeed...
+DEBUG (20:42): timingStepNeed = 20
+PASS
+------------------------------------------------------------------------------
+Executing test timingNsdrDuration...
+DEBUG (20:42): timingNsdrDuration = 30/20/10
+PASS
+------------------------------------------------------------------------------
+Executing test timingHysteresisBoth...
+DEBUG (20:42): timingHysteresisBoth = 909/939
+PASS
+------------------------------------------------------------------------------
+Executing test timingExpiry...
+DEBUG (20:42): timingExpiry = 10
+PASS
+------------------------------------------------------------------------------
+Executing test timingChooseCaffeine...
+DEBUG (20:42): timingChooseCaffeine = 1500
+PASS
+------------------------------------------------------------------------------
+Executing test timingChooseScreens...
+DEBUG (20:42): timingChooseScreens = 2200
+PASS
+------------------------------------------------------------------------------
+Executing test timingChooseCalm...
+DEBUG (20:42): timingChooseCalm = 2230
+PASS
+------------------------------------------------------------------------------
+Executing test timingAlarmBedAt...
+DEBUG (20:42): timingAlarmBedAt = 1350
+PASS
+------------------------------------------------------------------------------
+Executing test timingScreensAt...
+DEBUG (20:42): timingScreensAt = 1290
+PASS
+------------------------------------------------------------------------------
+Executing test timingNightMatch...
+DEBUG (20:42): timingNightMatch = 10
+PASS
+------------------------------------------------------------------------------
+Executing test timingSpread...
+DEBUG (20:42): timingSpread = 60
+PASS
+------------------------------------------------------------------------------
+Executing test timingScoreLow...
+DEBUG (20:42): timingScoreLow = 0
+PASS
+------------------------------------------------------------------------------
+Executing test timingScoreHigh...
+DEBUG (20:42): timingScoreHigh = 4
+PASS
+------------------------------------------------------------------------------
+Executing test timingNsdrTable...
+DEBUG (20:42): timingNsdrTable = 30/20/10/0
+PASS
+------------------------------------------------------------------------------
+Executing test timingNsdrCauseMatch...
+DEBUG (20:42): timingNsdrCauseMatch = Reveil de nuit 840
 PASS
 
 ==============================================================================
@@ -37,6 +209,49 @@ habitClockBackward                  PASS
 habitFullWeek                       PASS
 weekdaySunday                       PASS
 weekdayTuesdaySequence              PASS
-Ran 7 tests
+snapSize                            PASS
+snapCrcValid                        PASS
+snapCrcRejectsBitFlip               PASS
+snapRoundtripAlarm                  PASS
+snapRoundtripSteps                  PASS
+snapRoundtripTimestamp              PASS
+snapRoundtripDaySeq                 PASS
+snapMissingIsMinusOne               PASS
+snapZeroIsNotMissing                PASS
+snapRejectsTruncated                PASS
+corrValidAccepted                   PASS
+corrArrayAccepted                   PASS
+corrRejectsVersion                  PASS
+corrRejectsLength                   PASS
+corrRejectsCrc                      PASS
+corrRejectsExpired                  PASS
+corrRejectsMinute                   PASS
+corrRejectsNsdrValue                PASS
+corrRejectsNull                     PASS
+corrRejectsWrongType                PASS
+timingWrap                          PASS
+timingCircular                      PASS
+timingTempAt                        PASS
+timingScreenAt                      PASS
+timingCaffeineAt                    PASS
+timingDebt                          PASS
+timingZNoBaseline                   PASS
+timingZPositive                     PASS
+timingStepNeed                      PASS
+timingNsdrDuration                  PASS
+timingHysteresisBoth                PASS
+timingExpiry                        PASS
+timingChooseCaffeine                PASS
+timingChooseScreens                 PASS
+timingChooseCalm                    PASS
+timingAlarmBedAt                    PASS
+timingScreensAt                     PASS
+timingNightMatch                    PASS
+timingSpread                        PASS
+timingScoreLow                      PASS
+timingScoreHigh                     PASS
+timingNsdrTable                     PASS
+timingNsdrCauseMatch                PASS
+Ran 50 tests
 
-PASSED (passed=7, failed=0, errors=0)
+PASSED (passed=50, failed=0, errors=0)

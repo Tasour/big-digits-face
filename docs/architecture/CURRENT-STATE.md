@@ -92,3 +92,38 @@ Les trois binaires de production compilent en `-r` sans erreur. **Cause simulato
   G2 30 tests, G3 captures, G4b parité `Timing.mc`, G4 provenance). Le tableau
   §5 ci-dessus décrit l'état *avant* ces corrections et n'est pas effacé : il
   sert de témoin de l'historique de réparation.
+
+## 7. Lien téléphone (2026-11-25, ADR-0014)
+
+- **Contrat binaire figé** : instantané montre → téléphone de 62 octets,
+  corrections téléphone → montre de 40 octets, CRC-16/CCITT-FALSE, absence
+  `0xFFFF` décodée `-1`. Détail offset par offset dans
+  `docs/architecture/PHONE-CONTRACT.md`.
+- **Deux boucles** : la boucle rapide reste entièrement sur la montre (aucun
+  appel BLE dans `evaluateSlot`) ; la boucle lente est un envoi quotidien à la première
+  ouverture au premier plan et une réponse bornée, appliquée seulement si `exp > maintenant`.
+- **Ce qui est prouvé ici** : 19 tests unitaires du format (taille, CRC,
+  aller-retour, absence, zéro distinct de l'absence, 9 rejets de corrections),
+  soit 50 tests au total, `failed=0, errors=0`. La parité face/compagnon du
+  moteur est vérifiée par `scripts/check-timing-parity.sh`.
+- **`notMeasured` assumé** : le transport BLE réel (appairage téléphone,
+  latence, taux de rejet en usage) ne peut pas être mesuré sans application
+  téléphone. Aucun chiffre n'est avancé pour cette moitié.
+- **`upcomingWakeTime`** reste signalé non supporté sur `fr955` côté app ;
+  l'app lit `wakeTime`, le cadran `upcomingWakeTime` quand disponible.
+
+## 8. Correctif de démarrage en fond (2026-11-25)
+
+- **`Illegal Access (Out of Bounds)` éliminé** : `BuzzApp.onStart()` est aussi
+  appelé dans le processus de fond réveillé par `Background.requestApplicationWake()`.
+  Il n'appelle plus que les API autorisées en fond (`registerNext`,
+  `registerForSleepEvent`, `registerForWakeEvent`). Les mesures d'interface et
+  le lien BLE ont été déplacés dans `getInitialView()`, garanti au premier plan.
+- Preuve : exécution dans le simulateur fr955 sans entrée `Illegal Access` dans
+  `CIQ_LOG.YML`, avec les lignes `BLE envoi` puis `BLE attente` (aucun téléphone
+  appairé, comportement attendu).
+- **Observabilité** : `bleState()` écrit désormais `System.println("BLE …")`,
+  ce qui rend l'état lisible par l'outil MCP `ciq_ble_probe`.
+- **Diagnostic relu** : `docs/screens/app-diagnostic-final-watch.png` — 14
+  mesures sur deux colonnes et deux lignes d'observabilité, sans chevauchement
+  ni débordement hors du cercle.

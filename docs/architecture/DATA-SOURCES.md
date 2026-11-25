@@ -22,6 +22,9 @@ Matrice vérifiée dans le SDK Connect IQ 9.3.0 installé. `face` = watch face,
 | Pas / objectif | `ActivityMonitor.Info.steps`, `stepGoal` | oui | oui | Pas |
 | Calories, étages, minutes actives | `ActivityMonitor.Info` | oui | oui | contexte |
 | Position | `Position.getInfo()` (permissions) | oui (`getInfo`) | oui | NOAA |
+| Envoi téléphone | `Communications.transmit()` — **supporté sur `Forerunner® 955`** | non | oui | instantané 62 octets, 1/jour |
+| Réception téléphone | `Communications.registerForPhoneAppMessages()` | non | oui | corrections 40 octets |
+| Accusé d'envoi | `Communications.ConnectionListener.onComplete/onError()` | non | oui | états `ok` / `attente` / `abandon` |
 
 ## Champs horodatés exploitables pour le timing (2026-11-25)
 

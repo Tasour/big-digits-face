@@ -10,6 +10,22 @@ export JAVA_HOME="$JAVA"
 export PATH="$JAVA_HOME/bin:$PATH"
 export LD_LIBRARY_PATH="$COMPAT"
 
+# Le serveur MCP n'herite pas de la session Wayland : on retrouve le socket
+# et l'instance Hyprland dans /run/user/<uid> avant de lancer le simulateur.
+UID_RUN="$(id -u)"
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then export XDG_RUNTIME_DIR="/run/user/$UID_RUN"; fi
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  for sock in /run/user/$UID_RUN/wayland-*; do
+    case "$sock" in *.lock) continue;; esac
+    [ -S "$sock" ] && export WAYLAND_DISPLAY="$(basename "$sock")" && break
+  done
+fi
+if [ -z "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && [ -d /run/user/$UID_RUN/hypr ]; then
+  for instance in /run/user/$UID_RUN/hypr/*; do
+    [ -d "$instance" ] && export HYPRLAND_INSTANCE_SIGNATURE="$(basename "$instance")" && break
+  done
+fi
+
 "$SDK/bin/monkeyc" -f monkey.jungle -d fr955 -o bin/test-habits.prg \
   -y developer_key.der -t -w >/tmp/opencode/test-build.log 2>&1 || {
   tail -20 /tmp/opencode/test-build.log

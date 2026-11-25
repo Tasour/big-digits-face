@@ -15,6 +15,7 @@ using Toybox.Time;
 using Toybox.Time.Gregorian;
 using Toybox.UserProfile;
 using Toybox.ActivityMonitor;
+using Toybox.Communications;
 using Toybox.Weather;
 using Toybox.WatchUi as Ui;
 
@@ -32,6 +33,11 @@ var gPending as Lang.Number = 0;
 var gEvents as Lang.Number = 0;
 (:background)
 var gReason as Lang.String = "aucun";
+(:background)
+var gBle as Lang.String = "aucun";
+(:background)
+var gSource as Lang.String = "local";
+var gSending as Lang.Boolean = false;
 
 (:background)
 function dayIndex() as Lang.Number {
@@ -145,7 +151,62 @@ function nightDurations() as Lang.Array {
 
 (:background)
 function sleepDebt() as Lang.Number {
-    return timingDebt7(nightDurations(), TIMING_SLEEP_MIN as Lang.Number);
+    var corr = loadCorrections(Time.now().value());
+    if (corr != null && (corr[:debt7] as Lang.Number) >= 0) {
+        return corr[:debt7] as Lang.Number;
+    }
+    return timingDebt7(nightDurations(), effectiveNeed());
+}
+
+// --- Corrections recues du telephone (ADR-0014) -----------------------------
+
+(:background)
+function effectiveNeed() as Lang.Number {
+    var corr = loadCorrections(Time.now().value());
+    if (corr != null) {
+        var n = corr[:needMin] as Lang.Number;
+        if (n > 0) { return n; }
+    }
+    return TIMING_SLEEP_MIN as Lang.Number;
+}
+
+(:background)
+function saveCorrections(c as Lang.Dictionary) as Void {
+    App.Storage.setValue("corr.exp", c[:exp] as Lang.Number);
+    App.Storage.setValue("corr.need", c[:needMin] as Lang.Number);
+    App.Storage.setValue("corr.score", c[:sleepScore] as Lang.Number);
+    App.Storage.setValue("corr.debt", c[:debt7] as Lang.Number);
+    App.Storage.setValue("corr.bedsd", c[:bedSD] as Lang.Number);
+    App.Storage.setValue("corr.hrv", c[:hrvBase] as Lang.Number);
+    App.Storage.setValue("corr.bb", c[:bbBase] as Lang.Number);
+    App.Storage.setValue("corr.nsdr", c[:nsdrMin] as Lang.Number);
+    App.Storage.setValue("corr.nsdr_at", c[:nsdrAt] as Lang.Number);
+    App.Storage.setValue("corr.verdict", c[:verdict] as Lang.Number);
+    App.Storage.setValue("corr.reason", c[:reasonCode] as Lang.Number);
+    App.Storage.setValue("corr.conf", c[:confidence] as Lang.Number);
+    App.Storage.setValue("corr.ts", c[:ts] as Lang.Number);
+}
+
+// Une correction n'est appliquee que si elle n'a pas expire. Sinon le calcul
+// local reprend la main : aucun seuil telephone perime ne pilote un rappel.
+(:background)
+function loadCorrections(nowSeconds as Lang.Number) as Lang.Dictionary or Null {
+    var exp = loadNumber("corr.exp");
+    if (exp <= nowSeconds) { return null; }
+    if (App.Storage.getValue("corr.need") == null) { return null; }
+    return {
+        :needMin => loadNumber("corr.need"), :sleepScore => loadNumber("corr.score"),
+        :debt7 => loadNumber("corr.debt"), :bedSD => loadNumber("corr.bedsd"),
+        :hrvBase => loadNumber("corr.hrv"), :bbBase => loadNumber("corr.bb"),
+        :nsdrMin => loadNumber("corr.nsdr"), :nsdrAt => loadNumber("corr.nsdr_at"),
+        :verdict => loadNumber("corr.verdict"), :reasonCode => loadNumber("corr.reason"),
+        :confidence => loadNumber("corr.conf"), :exp => exp
+    } as Lang.Dictionary;
+}
+
+(:background)
+function correctionSource() as Lang.String {
+    return loadCorrections(Time.now().value()) == null ? "local" : "connect";
 }
 
 (:background)
@@ -180,6 +241,10 @@ function nightAlarm() as Lang.Boolean {
 
 (:background)
 function bedtimeSD() as Lang.Number {
+    var corr = loadCorrections(Time.now().value());
+    if (corr != null && (corr[:bedSD] as Lang.Number) >= 0) {
+        return corr[:bedSD] as Lang.Number;
+    }
     var vals = [] as Lang.Array;
     var today = dayIndex();
     for (var i = 0; i < 7; i++) {
@@ -527,6 +592,166 @@ function buildContext() as Lang.Dictionary {
     } as Lang.Dictionary;
 }
 
+// --- Lien telephone : une trame par reveil, plus un envoi manuel -----------
+
+(:background)
+function bedEventBits() as Lang.Number {
+    var today = dayIndex();
+    var bits = 0;
+    for (var i = 0; i < 7; i++) {
+        var v = App.Storage.getValue("sleep.bed." + (today - i).format("%d"));
+        if (v != null && v instanceof Lang.Number) { bits = bits | (1 << i); }
+    }
+    return bits;
+}
+
+// Table immuable des codes de raison (PHONE-CONTRACT.md). Jamais renumerotee.
+(:background)
+function reasonCodeForSlot(slot as Lang.Number) as Lang.Number {
+    if (slot == 700) { return 1; }
+    if (slot == 1230) { return 2; }
+    if (slot == 1500) { return 3; }
+    if (slot == 1730) { return 4; }
+    if (slot == 1830) { return 5; }
+    if (slot == 2100) { return 6; }
+    if (slot == 2200) { return 7; }
+    if (slot == 2230) { return 8; }
+    if (slot == 2400) { return 9; }
+    return 0;
+}
+
+(:background)
+function nextSeq() as Lang.Number {
+    var s = loadNumber("ble.seq") + 1;
+    if (s > 65534) { s = 1; }
+    return s;
+}
+
+// Contexte complet de la trame montre -> telephone. Toute absence vaut -1 :
+// aucun zero ne peut etre confondu avec une mesure.
+(:background)
+function snapshotContext() as Lang.Dictionary {
+    var ctx = buildContext();
+    var info = ActivityMonitor.getInfo();
+    var steps = -1;
+    var goal = -1;
+    if (info != null) {
+        if (info.steps != null) { steps = info.steps as Lang.Number; }
+        if (info.stepGoal != null) { goal = info.stepGoal as Lang.Number; }
+    }
+    var alarm = alarmMinute();
+    var bb = sensorSample(:bodybattery);
+    var night = sleepDurationMinutes();
+    var score = timingNsdrScore(ctx);
+    var verdict = 0;
+    if (score >= 3) { verdict = 2; } else if (score >= 1) { verdict = 1; }
+    return {
+        :seq => nextSeq(), :day => dayIndex() % 65534, :ts => Time.now().value(),
+        :flags => (nightAlarm() ? 1 : 0),
+        :alarm => (alarm == null ? -1 : alarm as Lang.Number),
+        :bedTarget => bedTarget(), :screensOff => screensOffMinute(),
+        :caffeine => timingCaffeine(bedTarget()),
+        :bedMean => bedMinutes(), :wakeMean => wakeMinute(),
+        :bedCount => bedEventCount(),
+        :lastNight => (night == null ? -1 : night as Lang.Number),
+        :debt => sleepDebt(), :bedSD => bedtimeSD(),
+        :stressZ100 => (stressZ() * 100).toNumber(),
+        :bb => (bb == null ? -1 : bb as Lang.Number),
+        :steps => steps, :goal => goal,
+        :sunrise => sunriseMinutes(), :sunset => sunsetMinutes(),
+        :nsdrScore => score, :nsdrMin => timingNsdrDurationFromScore(score),
+        :verdict => verdict,
+        :reasonCode => reasonCodeForSlot(loadNumber("diag.slot.id")),
+        :slot => loadNumber("diag.slot.id"),
+        :habitBits => bedEventBits()
+    } as Lang.Dictionary;
+}
+
+function bleState(label as Lang.String) as Void {
+    gBle = label;
+    App.Storage.setValue("diag.ble", label);
+    // Trace lisible par le simulateur et par le MCP (ciq_ble_probe) : sans
+    // elle, l'etat BLE ne serait observable que par capture d'ecran.
+    System.println("BLE " + label);
+}
+
+class PhoneListener extends Communications.ConnectionListener {
+    function initialize() {
+        Communications.ConnectionListener.initialize();
+    }
+
+    function onComplete() as Void {
+        gSending = false;
+        App.Storage.setValue("ble.pending", 0);
+        App.Storage.setValue("ble.tries", 0);
+        bleState("ok");
+        Ui.requestUpdate();
+    }
+
+    // Pas de minuterie en fond (interdite sous 5 min) : la nouvelle tentative
+    // a lieu a la prochaine ouverture de l'app, trois fois par jour au plus.
+    function onError() as Void {
+        gSending = false;
+        var tries = loadNumber("ble.tries") + 1;
+        App.Storage.setValue("ble.tries", tries);
+        if (tries >= 3) {
+            App.Storage.setValue("ble.pending", 0);
+            bleState("abandon");
+        } else {
+            bleState("attente");
+        }
+        Ui.requestUpdate();
+    }
+}
+
+// Envoi d'une seule trame, dans le contexte avant-plan : le service de fond
+// prepare le reveil, l'app envoie une fois reveillee.
+function sendSnapshot() as Lang.Boolean {
+    if (!(Toybox has :Communications) || !(Communications has :transmit)) {
+        bleState("indispo");
+        return false;
+    }
+    // Une seule requete en vol : profondeur de file = 1.
+    if (gSending) {
+        bleState("envoi en cours");
+        return false;
+    }
+    var ctx = snapshotContext();
+    var bytes = timingSnapshotBytes(ctx);
+    App.Storage.setValue("ble.seq", timingNum(ctx, :seq, 0));
+    App.Storage.setValue("ble.day", dayIndex());
+    App.Storage.setValue("ble.pending", 1);
+    gSending = true;
+    bleState("envoi");
+    try {
+        Communications.transmit(bytes as Lang.Array<Communications.TransmitType>,
+                                null, new PhoneListener());
+    } catch (e instanceof Lang.Exception) {
+        gSending = false;
+        bleState("indispo");
+        return false;
+    }
+    return true;
+}
+
+// Appele par la methode de BuzzApp (les callbacks doivent etre des methodes
+// de classe : method(:nom) ne resout pas une fonction de module).
+function handlePhoneMessage(raw as Lang.Object or Null) as Void {
+    var corr = timingParseCorrections(raw, Time.now().value());
+    if (corr == null) {
+        bleState("rejete");
+        App.Storage.setValue("diag.ble.reject", loadNumber("diag.ble.reject") + 1);
+        return;
+    }
+    saveCorrections(corr);
+    bleState("recu");
+    Ui.requestUpdate();
+}
+
+function handlePhoneError() as Void {
+    bleState("erreur");
+}
+
 (:background)
 function evaluateSlot() as Lang.Number {
     var alarm = alarmMinute();
@@ -604,6 +829,8 @@ function refreshMetrics() as Void {
     gPending = loadNumber("diag.pending");
     gEvents = bedEventCount();
     gReason = loadString("diag.slot.reason");
+    gBle = loadString("diag.ble");
+    gSource = correctionSource();
 
     gMetrics = [
         ["Horloge", System.getClockTime() != null],
@@ -672,40 +899,88 @@ class DiagView extends Ui.View {
         View.initialize();
     }
 
+    // Toute la geometrie est mesuree : hauteur de police reelle, largeur
+    // reelle des etiquettes. Aucune valeur magique, donc aucun chevauchement
+    // possible quand la police systeme change de taille.
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
-        // Bloc centre sur le cadran, coins sur le cercle d'affichage.
-        var bx = 20;
-        var by = 61;
-        var bw = 220;
-        var bh = 138;
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawRectangle(bx, by, bw, bh);
-
+        var width = dc.getWidth();
+        var height = dc.getHeight();
+        var font = Graphics.FONT_XTINY;
+        var titleFont = Graphics.FONT_SMALL;
+        var lineH = dc.getFontHeight(font) + 1;
+        var titleH = dc.getFontHeight(titleFont) + 4;
+        var glyphW = dc.getFontHeight(font);
         var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(130, by + 18, Graphics.FONT_SMALL, "DIAGNOSTIC", justify);
-        for (var i = 0; i < gMetrics.size(); i++) {
+        var leftJustify = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
+
+        var count = gMetrics.size();
+        if (count == 0) {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(width / 2, height / 2, titleFont, "Aucune mesure", justify);
+            return;
+        }
+
+        // Largeur reelle de chaque colonne avant de choisir la disposition.
+        var half = (count + 1) / 2;
+        var w0 = 0;
+        var w1 = 0;
+        for (var i = 0; i < count; i++) {
             var row = gMetrics[i] as Lang.Array;
-            var col = i / 7;
-            var idx = i % 7;
-            var x = col == 0 ? 30 : 142;
-            var y = by + 35 + idx * 11;
+            var tw = dc.getTextWidthInPixels(row[0] as Lang.String, font);
+            if (i < half) {
+                if (tw > w0) { w0 = tw; }
+            } else {
+                if (tw > w1) { w1 = tw; }
+            }
+        }
+
+        var pad = 10;
+        var gutter = 16;
+        var textGap = glyphW + 6;
+        var twoCols = textGap + w0 + gutter + textGap + w1;
+        var single = twoCols > width - 2 * pad - 2;
+        var rows = single ? count : half;
+        var contentW = single ? (textGap + w0) : twoCols;
+
+        var footer = 2;
+        var totalH = titleH + rows * lineH + lineH + footer * lineH;
+        var top = (height - totalH) / 2;
+        if (top < 4) { top = 4; }
+
+        var boxW = contentW + 2 * pad;
+        if (boxW > width - 4) { boxW = width - 4; }
+        var left = (width - boxW) / 2;
+        var rightStart = left + pad + textGap + w0 + gutter;
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawRectangle(left, top, boxW, totalH);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(width / 2, top + titleH / 2, titleFont, "DIAGNOSTIC", justify);
+
+        for (var i = 0; i < count; i++) {
+            var row = gMetrics[i] as Lang.Array;
+            var inRight = !single && i >= rows;
+            var idx = single ? i : (i < rows ? i : i - rows);
+            var x = inRight ? rightStart : left + pad;
+            var y = top + titleH + idx * lineH + lineH / 2;
             drawGlyph(dc, x, y, row[1] as Lang.Boolean);
-            dc.drawText(x + 12, y, Graphics.FONT_SYSTEM_XTINY, row[0] as Lang.String,
-                        Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.drawText(x + textGap, y, font, row[0] as Lang.String, leftJustify);
         }
 
         // Observabilite sous le bloc.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(130, 176, Graphics.FONT_SYSTEM_XTINY,
-                    "Event: " + gEvents.format("%d") + "/7 " + gLastEvent, justify);
-        dc.drawText(130, 187, Graphics.FONT_SYSTEM_XTINY,
-                    "Buzz: " + gLastBuzz + (gPending == 1 ? " / attente" : ""), justify);
-        dc.drawText(130, 197, Graphics.FONT_SYSTEM_XTINY,
-                    "Raison: " + gReason, justify);
+        var ly = top + titleH + rows * lineH + lineH / 2;
+        var cx = width / 2;
+        // Trois lignes au lieu de cinq : toute l'information reste visible
+        // dans le cercle du cadran, meme quand la police systeme est grande.
+        dc.drawText(cx, ly, font,
+                    "E:" + gEvents.format("%d") + "/7 " + gLastEvent + "  B:" + gLastBuzz +
+                    "  R:" + gReason, justify);
+        dc.drawText(cx, ly + lineH, font, "BLE:" + gBle + "  S:" + gSource, justify);
     }
 }
 
@@ -825,7 +1100,9 @@ class TestPanelDelegate extends Ui.BehaviorDelegate {
     }
 
     function onPress() as Lang.Boolean {
-        doBuzz(9998, false);
+        // Envoi manuel de la trame telephone, puis buzz de confirmation.
+        var sent = sendSnapshot();
+        doBuzz(sent ? 9998 : 9997, false);
         Ui.popView(Ui.SLIDE_IMMEDIATE);
         return true;
     }
@@ -897,15 +1174,50 @@ class BuzzApp extends App.AppBase {
     }
 
     (:typecheck(disableBackgroundCheck))
+    function onPhoneMessage(msg as Communications.PhoneAppMessage) as Void {
+        handlePhoneMessage(msg.data);
+    }
+
+    (:typecheck(disableBackgroundCheck))
+    function onPhoneMessageError(err as Communications.PhoneAppMessageError) as Void {
+        handlePhoneError();
+    }
+
+    (:typecheck(disableBackgroundCheck))
+    // onStart est aussi appele dans le processus de fond lorsque
+    // Background.requestApplicationWake() reveille l'app : il ne doit donc
+    // toucher qu'aux API autorisees en fond (moteur, stockage, planification).
+    // Aucun chargement d'UI, aucune API de premier plan, aucun BLE ici.
     function onStart(state as Lang.Dictionary or Null) as Void {
-        refreshMetrics();
         registerNext();
         if (Background has :registerForSleepEvent) { Background.registerForSleepEvent(); }
         if (Background has :registerForWakeEvent) { Background.registerForWakeEvent(); }
     }
 
+    // Appele uniquement depuis l'interface (DiagDelegate.onShow), donc
+    // toujours au premier plan : enregistrement des messages telephone et
+    // envoi quotidien de l'instantane.
+    (:typecheck(disableBackgroundCheck))
+    function activateLink() as Void {
+        if (Toybox has :Communications && Communications has :registerForPhoneAppMessages) {
+            Communications.registerForPhoneAppMessages(method(:onPhoneMessage));
+            if (Communications has :registerForPhoneAppMessageErrors) {
+                Communications.registerForPhoneAppMessageErrors(method(:onPhoneMessageError));
+            }
+        }
+        if (loadNumber("ble.day") != dayIndex()) {
+            sendSnapshot();
+        } else if (loadNumber("ble.pending") == 1 && loadNumber("ble.tries") < 3) {
+            sendSnapshot();
+        }
+    }
+
     (:typecheck(disableBackgroundCheck))
     function getInitialView() {
+        // Seul point d'entree garanti au premier plan : mesures et lien
+        // telephone n'ont pas le droit de tourner dans le processus de fond.
+        refreshMetrics();
+        activateLink();
         if (loadNumber("diag.pending") == 1) {
             var msg = loadString("diag.pending.msg");
             App.Storage.setValue("diag.pending", 0);

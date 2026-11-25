@@ -277,3 +277,321 @@ function timingNsdrTime(ctx as Lang.Dictionary) as Lang.Number {
     }
     return timingMod((ctx[:wake] as Lang.Number) + 30);
 }
+
+// --- Contrat binaire telephone (ADR-0014) ---------------------------------
+//
+// Deux trames, little-endian, entiers 16 bits non signes, absence = 0xFFFF.
+// Aucune fonction de ce bloc n'utilise Communications : le transport reste
+// dans l'app compagnon, le format reste testable sur la face.
+//
+// Les trames sont des Lang.Array de nombres 0-255, le type exact accepte par
+// Communications.transmit() ; une trame recue en ByteArray est convertie.
+
+(:background)
+const TIMING_SNAP_VERSION = 1;
+(:background)
+const TIMING_SNAP_SIZE = 62;      // 12 octets d'en-tete + 48 + 2 de CRC
+(:background)
+const TIMING_SNAP_FIELDS = 24;
+(:background)
+const TIMING_SNAP_MISSING = 65535;
+(:background)
+const TIMING_SNAP_O_LEN = 1;
+(:background)
+const TIMING_SNAP_O_SEQ = 2;
+(:background)
+const TIMING_SNAP_O_DAY = 4;
+(:background)
+const TIMING_SNAP_O_TS = 6;
+(:background)
+const TIMING_SNAP_O_FLAGS = 10;
+(:background)
+const TIMING_SNAP_O_FIELDS = 12;
+(:background)
+const TIMING_SNAP_O_CRC = 60;
+
+(:background)
+const TIMING_CORR_VERSION = 1;
+(:background)
+const TIMING_CORR_SIZE = 40;      // 8 + 26 + 4 (exp) + 2 (CRC)
+(:background)
+const TIMING_CORR_FIELDS = 13;
+(:background)
+const TIMING_CORR_O_FIELDS = 8;
+(:background)
+const TIMING_CORR_O_EXP = 34;
+(:background)
+const TIMING_CORR_O_CRC = 38;
+
+// Lit un champ numerique sans lever d'exception quand la cle manque.
+(:background)
+function timingNum(d as Lang.Dictionary, key as Lang.Symbol, fallback as Lang.Number) as Lang.Number {
+    var v = d.get(key);
+    if (v != null && v instanceof Lang.Number) { return v as Lang.Number; }
+    return fallback;
+}
+
+// Normalise une trame recue (ByteArray du telephone, Array ou null).
+(:background)
+function timingToBytes(raw as Lang.Object or Null) as Lang.Array or Null {
+    if (raw == null) { return null; }
+    var out = [] as Lang.Array;
+    if (raw instanceof Lang.ByteArray) {
+        var ba = raw as Lang.ByteArray;
+        for (var i = 0; i < ba.size(); i++) { out.add(ba[i] as Lang.Number); }
+        return out;
+    }
+    if (raw instanceof Lang.Array) {
+        var arr = raw as Lang.Array;
+        for (var i = 0; i < arr.size(); i++) {
+            var e = arr[i];
+            if (!(e instanceof Lang.Number)) { return null; }
+            out.add(e as Lang.Number);
+        }
+        return out;
+    }
+    return null;
+}
+
+// CRC-16/CCITT-FALSE : polynome 0x1021, initialisation 0xFFFF.
+(:background)
+function timingCrc16(bytes as Lang.Array, from as Lang.Number, to as Lang.Number) as Lang.Number {
+    var crc = 0xFFFF;
+    for (var i = from; i < to; i++) {
+        crc = (crc ^ (((bytes[i] as Lang.Number) & 0xFF) << 8)) & 0xFFFF;
+        for (var k = 0; k < 8; k++) {
+            if ((crc & 0x8000) != 0) {
+                crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+            } else {
+                crc = (crc << 1) & 0xFFFF;
+            }
+        }
+    }
+    return crc & 0xFFFF;
+}
+
+(:background)
+function timingPushU16(out as Lang.Array, v as Lang.Number) as Void {
+    var x = v;
+    if (x < 0) { x = TIMING_SNAP_MISSING; }
+    else if (x > 65534) { x = 65534; }
+    out.add(x & 0xFF);
+    out.add((x >> 8) & 0xFF);
+}
+
+(:background)
+function timingPushU32(out as Lang.Array, v as Lang.Number) as Void {
+    var x = v;
+    if (x < 0) { x = 0; }
+    out.add(x & 0xFF);
+    out.add((x >> 8) & 0xFF);
+    out.add((x >> 16) & 0xFF);
+    out.add((x >> 24) & 0xFF);
+}
+
+(:background)
+function timingReadU16(bytes as Lang.Array, offset as Lang.Number) as Lang.Number {
+    var lo = (bytes[offset] as Lang.Number) & 0xFF;
+    var hi = (bytes[offset + 1] as Lang.Number) & 0xFF;
+    return lo + (hi << 8);
+}
+
+(:background)
+function timingReadU32(bytes as Lang.Array, offset as Lang.Number) as Lang.Number {
+    var b0 = (bytes[offset] as Lang.Number) & 0xFF;
+    var b1 = (bytes[offset + 1] as Lang.Number) & 0xFF;
+    var b2 = (bytes[offset + 2] as Lang.Number) & 0xFF;
+    var b3 = (bytes[offset + 3] as Lang.Number) & 0xFF;
+    return b0 + (b1 << 8) + (b2 << 16) + (b3 << 24);
+}
+
+// Ordre des 24 champs de la trame montre -> telephone. Jamais renumerote.
+(:background)
+function timingSnapshotValues(ctx as Lang.Dictionary) as Lang.Array {
+    return [
+        timingNum(ctx, :alarm, -1),
+        timingNum(ctx, :bedTarget, -1),
+        timingNum(ctx, :screensOff, -1),
+        timingNum(ctx, :caffeine, -1),
+        timingNum(ctx, :bedMean, -1),
+        timingNum(ctx, :wakeMean, -1),
+        timingNum(ctx, :bedCount, -1),
+        timingNum(ctx, :lastNight, -1),
+        timingNum(ctx, :debt, -1),
+        timingNum(ctx, :bedSD, -1),
+        timingNum(ctx, :stressZ100, -1),
+        timingNum(ctx, :bb, -1),
+        timingNum(ctx, :steps, -1),
+        timingNum(ctx, :goal, -1),
+        timingNum(ctx, :sunrise, -1),
+        timingNum(ctx, :sunset, -1),
+        timingNum(ctx, :nsdrScore, -1),
+        timingNum(ctx, :nsdrMin, -1),
+        timingNum(ctx, :verdict, -1),
+        timingNum(ctx, :reasonCode, -1),
+        timingNum(ctx, :slot, -1),
+        timingNum(ctx, :habitBits, -1),
+        timingNum(ctx, :reserved1, -1),
+        timingNum(ctx, :reserved2, -1)
+    ] as Lang.Array;
+}
+
+(:background)
+function timingSnapshotBytes(ctx as Lang.Dictionary) as Lang.Array {
+    var out = [] as Lang.Array;
+    out.add(TIMING_SNAP_VERSION);
+    out.add(TIMING_SNAP_SIZE);
+    timingPushU16(out, timingNum(ctx, :seq, 0));
+    timingPushU16(out, timingNum(ctx, :day, 0));
+    timingPushU32(out, timingNum(ctx, :ts, 0));
+    timingPushU16(out, timingNum(ctx, :flags, 0));
+    var vals = timingSnapshotValues(ctx);
+    for (var i = 0; i < vals.size(); i++) {
+        timingPushU16(out, vals[i] as Lang.Number);
+    }
+    timingPushU16(out, timingCrc16(out, 0, out.size()));
+    return out;
+}
+
+(:background)
+function timingSnapshotValid(raw as Lang.Object or Null) as Lang.Boolean {
+    var bytes = timingToBytes(raw);
+    if (bytes == null) { return false; }
+    var b = bytes as Lang.Array;
+    if (b.size() != TIMING_SNAP_SIZE) { return false; }
+    if ((b[0] as Lang.Number) != TIMING_SNAP_VERSION) { return false; }
+    if ((b[TIMING_SNAP_O_LEN] as Lang.Number) != TIMING_SNAP_SIZE) { return false; }
+    return timingReadU16(b, TIMING_SNAP_O_CRC) == timingCrc16(b, 0, TIMING_SNAP_O_CRC);
+}
+
+(:background)
+function timingSnapshotField(bytes as Lang.Array, index as Lang.Number) as Lang.Number {
+    var raw = timingReadU16(bytes, TIMING_SNAP_O_FIELDS + index * 2);
+    return raw == TIMING_SNAP_MISSING ? -1 : raw;
+}
+
+// Decode une trame montre -> telephone en Dictionary nomme, ou null si invalide.
+(:background)
+function timingSnapshotDecode(raw as Lang.Object or Null) as Lang.Dictionary or Null {
+    if (!timingSnapshotValid(raw)) { return null; }
+    var bytes = timingToBytes(raw) as Lang.Array;
+    return {
+        :version => TIMING_SNAP_VERSION,
+        :seq => timingReadU16(bytes, TIMING_SNAP_O_SEQ),
+        :day => timingReadU16(bytes, TIMING_SNAP_O_DAY),
+        :ts => timingReadU32(bytes, TIMING_SNAP_O_TS),
+        :flags => timingReadU16(bytes, TIMING_SNAP_O_FLAGS),
+        :alarm => timingSnapshotField(bytes, 0),
+        :bedTarget => timingSnapshotField(bytes, 1),
+        :screensOff => timingSnapshotField(bytes, 2),
+        :caffeine => timingSnapshotField(bytes, 3),
+        :bedMean => timingSnapshotField(bytes, 4),
+        :wakeMean => timingSnapshotField(bytes, 5),
+        :bedCount => timingSnapshotField(bytes, 6),
+        :lastNight => timingSnapshotField(bytes, 7),
+        :debt => timingSnapshotField(bytes, 8),
+        :bedSD => timingSnapshotField(bytes, 9),
+        :stressZ100 => timingSnapshotField(bytes, 10),
+        :bb => timingSnapshotField(bytes, 11),
+        :steps => timingSnapshotField(bytes, 12),
+        :goal => timingSnapshotField(bytes, 13),
+        :sunrise => timingSnapshotField(bytes, 14),
+        :sunset => timingSnapshotField(bytes, 15),
+        :nsdrScore => timingSnapshotField(bytes, 16),
+        :nsdrMin => timingSnapshotField(bytes, 17),
+        :verdict => timingSnapshotField(bytes, 18),
+        :reasonCode => timingSnapshotField(bytes, 19),
+        :slot => timingSnapshotField(bytes, 20),
+        :habitBits => timingSnapshotField(bytes, 21),
+        :reserved1 => timingSnapshotField(bytes, 22),
+        :reserved2 => timingSnapshotField(bytes, 23)
+    } as Lang.Dictionary;
+}
+
+// Construit une trame telephone -> montre. Reservee au telephone et aux tests.
+(:background)
+function timingCorrectionsBytes(ctx as Lang.Dictionary) as Lang.Array {
+    var out = [] as Lang.Array;
+    out.add(TIMING_CORR_VERSION);
+    out.add(TIMING_CORR_SIZE);
+    timingPushU16(out, timingNum(ctx, :seq, 0));
+    timingPushU32(out, timingNum(ctx, :ts, 0));
+    timingPushU16(out, timingNum(ctx, :needMin, -1));
+    timingPushU16(out, timingNum(ctx, :sleepScore, -1));
+    timingPushU16(out, timingNum(ctx, :debt7, -1));
+    timingPushU16(out, timingNum(ctx, :bedSD, -1));
+    timingPushU16(out, timingNum(ctx, :hrvBase, -1));
+    timingPushU16(out, timingNum(ctx, :bbBase, -1));
+    timingPushU16(out, timingNum(ctx, :nsdrMin, -1));
+    timingPushU16(out, timingNum(ctx, :nsdrAt, -1));
+    timingPushU16(out, timingNum(ctx, :verdict, -1));
+    timingPushU16(out, timingNum(ctx, :reasonCode, -1));
+    timingPushU16(out, timingNum(ctx, :confidence, -1));
+    timingPushU16(out, -1);
+    timingPushU16(out, -1);
+    timingPushU32(out, timingNum(ctx, :exp, 0));
+    timingPushU16(out, timingCrc16(out, 0, out.size()));
+    return out;
+}
+
+(:background)
+function timingCorrInRange(v as Lang.Number, max as Lang.Number) as Lang.Boolean {
+    return v == -1 || (v >= 0 && v <= max);
+}
+
+// Valide une trame telephone -> montre. Retourne null si un seul controle
+// echoue : type, taille, version, longueur, CRC, expiration, bornes.
+(:background)
+function timingParseCorrections(raw as Lang.Object or Null, nowSeconds as Lang.Number) as Lang.Dictionary or Null {
+    var bytes = timingToBytes(raw);
+    if (bytes == null) { return null; }
+    var b = bytes as Lang.Array;
+    if (b.size() != TIMING_CORR_SIZE) { return null; }
+    if ((b[0] as Lang.Number) != TIMING_CORR_VERSION) { return null; }
+    if ((b[1] as Lang.Number) != TIMING_CORR_SIZE) { return null; }
+    if (timingReadU16(b, TIMING_CORR_O_CRC) != timingCrc16(b, 0, TIMING_CORR_O_CRC)) {
+        return null;
+    }
+    var exp = timingReadU32(b, TIMING_CORR_O_EXP);
+    if (exp <= nowSeconds) { return null; }
+
+    var v = [] as Lang.Array;
+    for (var i = 0; i < TIMING_CORR_FIELDS; i++) {
+        var raw16 = timingReadU16(b, TIMING_CORR_O_FIELDS + i * 2);
+        v.add(raw16 == TIMING_SNAP_MISSING ? -1 : raw16);
+    }
+    var needMin = v[0] as Lang.Number;
+    var sleepScore = v[1] as Lang.Number;
+    var debt7 = v[2] as Lang.Number;
+    var bedSD = v[3] as Lang.Number;
+    var hrvBase = v[4] as Lang.Number;
+    var bbBase = v[5] as Lang.Number;
+    var nsdrMin = v[6] as Lang.Number;
+    var nsdrAt = v[7] as Lang.Number;
+    var verdict = v[8] as Lang.Number;
+    var reasonCode = v[9] as Lang.Number;
+    var confidence = v[10] as Lang.Number;
+
+    if (!timingCorrInRange(needMin, 1440)) { return null; }
+    if (!timingCorrInRange(sleepScore, 100)) { return null; }
+    if (debt7 < -1 || debt7 > 5000) { return null; }
+    if (!timingCorrInRange(bedSD, 720)) { return null; }
+    if (!timingCorrInRange(hrvBase, 200)) { return null; }
+    if (!timingCorrInRange(bbBase, 100)) { return null; }
+    if (!(nsdrMin == -1 || nsdrMin == 0 || nsdrMin == 10 ||
+          nsdrMin == 20 || nsdrMin == 30)) { return null; }
+    if (!timingCorrInRange(nsdrAt, 1439)) { return null; }
+    if (verdict < -1 || verdict > 2) { return null; }
+    if (reasonCode < -1 || reasonCode > 15) { return null; }
+    if (!timingCorrInRange(confidence, 100)) { return null; }
+
+    return {
+        :version => TIMING_CORR_VERSION,
+        :seq => timingReadU16(b, 2),
+        :ts => timingReadU32(b, 4),
+        :needMin => needMin, :sleepScore => sleepScore, :debt7 => debt7,
+        :bedSD => bedSD, :hrvBase => hrvBase, :bbBase => bbBase,
+        :nsdrMin => nsdrMin, :nsdrAt => nsdrAt, :verdict => verdict,
+        :reasonCode => reasonCode, :confidence => confidence, :exp => exp
+    } as Lang.Dictionary;
+}

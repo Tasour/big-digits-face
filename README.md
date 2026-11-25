@@ -125,6 +125,35 @@ affichée dépend de la nuit et du stress, tendance de stress sur 1 h pour Calme
 Le score de sommeil natif n'est pas exposé par le device `fr955`
 (`docs/architecture/DATA-SOURCES.md`) : il reste `notMeasured`.
 
+### Lien téléphone — deux boucles (ADR-0014)
+
+La montre décide seule. Le téléphone ne fait que corriger, une fois par jour.
+
+- **Montre → téléphone** : une trame binaire de **62 octets** à la première
+  ouverture de l'application au premier plan (ou depuis le panneau de test), avec réveil,
+  coucher visé, écrans off, caféine, moyennes, dette, écart-type du coucher,
+  stress z × 100, Body Battery, pas, soleil, score NSDR, slot et raison.
+- **Téléphone → montre** : **40 octets** de corrections (`needMin`, `debt7`,
+  `bedSD`, `verdict`, `nsdrMin`, `exp`), validées par version, longueur, CRC-16,
+  expiration et bornes. Une correction périmée est ignorée et le calcul local
+  reprend, sans message.
+- **Transport** : `Communications.transmit` / `registerForPhoneAppMessages`,
+  BLE uniquement, zéro URL, zéro cloud. Une seule requête en vol ; en cas
+  d'échec, nouvelle tentative à la prochaine ouverture, trois fois par jour.
+- **Diagnostic** : deux lignes `BLE:` (envoi / ok / attente / abandon / rejeté)
+  et `Src:` (`local` ou `connect`) sur l'écran de diagnostic.
+
+Le contrat complet, offset par offset, est dans
+`docs/architecture/PHONE-CONTRACT.md`. Vérification du format sans téléphone :
+
+```bash
+./scripts/run-watch-tests.sh      # 50 tests, dont 19 sur le contrat binaire
+./scripts/check-timing-parity.sh  # parité face / compagnon
+```
+
+Le transport BLE réel reste **`notMeasured`** : il exige une application
+téléphone qui parle le protocole Garmin. Rien n'est déclaré prouvé à sa place.
+
 ### Méthode de capture
 
 Les captures sont prises sur le device `fr955` avec un cadran de test temporaire
