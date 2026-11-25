@@ -219,8 +219,10 @@ ID dédié) qui fournit le retour haptique impossible depuis le cadran :
   fermeture automatique après 25 s par un `Timer`.
 - **cadran** : `WatchFaceDelegate.onPress()` est un **appui maintenu** — un appui
   court n'est pas délivré à une watch face. Appui long = accuser puis fermer le
-  popup. La 955 n'a pas d'écran tactile ; `onTap` n'est utilisable qu'en mode
-  configuration du cadran sur les appareils tactiles.
+  popup. Le FR955 **est** tactile (`Devices/fr955/simulator.json` : `isTouch: true`,
+  `tap → onSelect`) ; `WatchFaceDelegate.onTap()` est documenté comme disponible
+  uniquement en mode configuration du cadran. Le spike de tapped normal est
+  décrit dans `docs/architecture/CURRENT-STATE.md`.
 
 ```bash
 cd companion && ./build.sh
@@ -314,10 +316,16 @@ Le moteur de timing est un module pur partagé (`shared/Timing.mc`) compilé dan
 la face, l'app et les tests. Il applique les seuils du livre aux données réelles
 quand elles existent (événements coucher/lever, pas, stress, Body Battery) et
 repli sur `UserProfile` sinon (`eventConfidence()` exige 3 couchers sur 7 jours).
-Les créneaux calculés remplacent les heures codées en dur : caféine à
-`coucher − 8 h`, écrans à `lever − 10 h` (début de la fenêtre de lumière vive à
-éviter), lumière à `lever + 30 min`, pas quand le rythme requis dépasse
-100 pas/min, NSDR selon la dette 7 nuits.
+Les créneaux calculés remplacent les heures codées en dur. Si un **réveil est
+programmé** (`wakeTime` dans l'app, `upcomingWakeTime` sur le cadran), le coucher visé est `réveil − 8 h`, les écrans
+s'arrêtent **1 h avant** et la caféine s'arrête 8 h avant ; sinon les heures
+réelles des événements coucher/lever servent de référence. Un réveil au milieu
+de la nuit (≤ 04 h 30 ou décalé de plus de 2 h) est signalé comme réveil de
+match avec un rappel NSDR. La lumière utilise le **lever et le coucher du
+soleil** (`Weather.getSunrise/getSunset`, repli NOAA sur le cadran). Le pas est
+déclenché quand le rythme requis dépasse 100 pas/min. Le NSDR combine cinq
+signaux — dette 7 nuits, dernière nuit, régularité du coucher, stress et Body
+Battery — pour choisir 10, 20 ou 30 min et le meilleur créneau (ADR-0013).
 
 Sur le FR955, **il n'y a pas d'écran tactile** et `WatchFaceDelegate.onPress()`
 est un appui maintenu : le cadran ne reçoit jamais d'appui court. Le mapping

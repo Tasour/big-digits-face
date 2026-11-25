@@ -124,7 +124,6 @@ function timingChooseSlot(ctx as Lang.Dictionary) as Lang.Dictionary {
     var goal = ctx[:goal] as Lang.Number;
     var stressZ = ctx[:stressZ] as Lang.Number;
     var bb = ctx[:bb] as Lang.Number;
-    var debt = ctx[:debt] as Lang.Number;
     var sunset = ctx[:sunset] as Lang.Number;
     var span = ctx[:span] as Lang.Number;
     var elapsed = ctx[:elapsed] as Lang.Number;
@@ -133,14 +132,16 @@ function timingChooseSlot(ctx as Lang.Dictionary) as Lang.Dictionary {
     if (stressZ >= 2.0 && bb < 40) {
         return {:slot => 2230, :reason => "Stress eleve"};
     }
-    // 2. NSDR : dette cumulee, fenetre apres le lever.
-    if ((debt >= 120 || (ctx[:shortNight] as Lang.Boolean)) &&
-        timingWindow(now, timingLightStart(wake), 120)) {
-        return {:slot => 2100, :reason => "Nuit courte"};
+    // 2. NSDR : score multi-signaux, creneau selon la cause dominante.
+    var nsdrScore = timingNsdrScore(ctx);
+    if (nsdrScore >= 1 && timingAt(now, timingNsdrTime(ctx))) {
+        return {:slot => 2100, :reason => timingNsdrCause(ctx)};
     }
-    // 3. Lumiere matinale : 5-10 min, +30 min apres le lever.
-    if (timingAt(now, timingLightStart(wake))) {
-        return {:slot => 700, :reason => "Lever " + timingHHMM(wake) + " + 30"};
+    // 3. Lumiere : lever du soleil reel quand disponible, sinon lever + 30.
+    var sunrise = ctx[:sunrise] as Lang.Number;
+    var lightTarget = sunrise >= 0 ? sunrise : timingLightStart(wake);
+    if (timingWindow(now, lightTarget, 60)) {
+        return {:slot => 700, :reason => "Lever soleil " + timingHHMM(lightTarget)};
     }
     // 4. Pas : notification seulement si le rythme requis devient irrealiste.
     var minutesLeft = span - elapsed;
@@ -152,9 +153,9 @@ function timingChooseSlot(ctx as Lang.Dictionary) as Lang.Dictionary {
     if (timingAt(now, timingCaffeine(bed))) {
         return {:slot => 1500, :reason => "Coucher " + timingHHMM(bed) + " - 8 h"};
     }
-    // 6. Ecrans : debut de la fenetre de lumiere vive a eviter.
-    if (timingAt(now, timingScreenStart(wake))) {
-        return {:slot => 2200, :reason => "Lever " + timingHHMM(wake) + " - 10 h"};
+    // 6. Ecrans : une heure avant le coucher calcule (reveil programme ou moyenne).
+    if (timingAt(now, timingScreensOff(bed))) {
+        return {:slot => 2200, :reason => "Ecrans off " + timingHHMM(timingScreensOff(bed))};
     }
     // 7. Repas : heure non mesurable, creneau fixe documente.
     if (timingAt(now, 750)) {
@@ -165,4 +166,76 @@ function timingChooseSlot(ctx as Lang.Dictionary) as Lang.Dictionary {
         return {:slot => 1730, :reason => "Coucher soleil"};
     }
     return {:slot => -1, :reason => "aucun"};
+}
+
+// --- Réveil programmé, régularité et NSDR multi-signaux -------------------
+
+function timingAlarmBed(wake as Lang.Number, sleepMinutes as Lang.Number) as Lang.Number {
+    return timingMod(wake - sleepMinutes);
+}
+
+function timingScreensOff(bed as Lang.Number) as Lang.Number {
+    return timingMod(bed - 60);
+}
+
+function timingNightAlarm(wake as Lang.Number, typicalWake as Lang.Number) as Lang.Boolean {
+    var night = wake <= 270;
+    var delta = timingMod(wake - typicalWake);
+    var shifted = delta > 120 && delta < TIMING_DAY - 120;
+    return night || shifted;
+}
+
+function timingCircularSD(values as Lang.Array) as Lang.Number {
+    var n = values.size();
+    if (n < 2) { return 0; }
+    var sumS = 0.0;
+    var sumC = 0.0;
+    for (var i = 0; i < n; i++) {
+        var a = 2.0 * Math.PI * (values[i] as Lang.Number) / TIMING_DAY;
+        sumS += Math.sin(a);
+        sumC += Math.cos(a);
+    }
+    var r = Math.sqrt(sumS * sumS + sumC * sumC) / n;
+    if (r >= 1.0) { return 0; }
+    var sd = Math.sqrt(-2.0 * Math.log(r, Math.E)) * TIMING_DAY / (2.0 * Math.PI);
+    return sd.toNumber();
+}
+
+function timingNsdrScore(ctx as Lang.Dictionary) as Lang.Number {
+    var debt = ctx[:debt] as Lang.Number;
+    var sd = ctx[:bedSD] as Lang.Number;
+    var z = ctx[:stressZ] as Lang.Number;
+    var bb = ctx[:bb] as Lang.Number;
+    var debtPart = debt > 420 ? 1 : debt / 420.0;
+    var regPart = sd > 60 ? 1 : sd / 60.0;
+    var zPart = z >= 3 ? 1 : (z <= 0 ? 0 : z / 3.0);
+    var bbPart = bb >= 70 ? 0 : ((70 - bb) / 70.0 > 1 ? 1 : (70 - bb) / 70.0);
+    var score = 0.30 * debtPart + 0.15 * regPart + 0.20 * zPart + 0.15 * bbPart;
+    if (ctx[:shortNight] as Lang.Boolean) { score += 0.20; }
+    return (score * 5).toNumber();
+}
+
+function timingNsdrDurationFromScore(score as Lang.Number) as Lang.Number {
+    if (score >= 3) { return 30; }
+    if (score >= 2) { return 20; }
+    if (score >= 1) { return 10; }
+    return 0;
+}
+
+function timingNsdrCause(ctx as Lang.Dictionary) as Lang.String {
+    if ((ctx[:stressZ] as Lang.Number) >= 2.0 && (ctx[:bb] as Lang.Number) < 40) {
+        return "Stress et battery";
+    }
+    if (ctx[:nightAlarm] as Lang.Boolean) { return "Reveil de nuit"; }
+    if ((ctx[:bedSD] as Lang.Number) > 60) { return "Coucher irregulier"; }
+    return "Dette de sommeil";
+}
+
+function timingNsdrTime(ctx as Lang.Dictionary) as Lang.Number {
+    var cause = timingNsdrCause(ctx);
+    if (cause.equals("Reveil de nuit")) { return 840; }
+    if (cause.equals("Coucher irregulier")) {
+        return timingScreensOff(ctx[:bed] as Lang.Number);
+    }
+    return timingMod((ctx[:wake] as Lang.Number) + 30);
 }

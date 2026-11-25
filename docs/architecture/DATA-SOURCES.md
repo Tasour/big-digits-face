@@ -38,10 +38,13 @@ Matrice vérifiée dans le SDK Connect IQ 9.3.0 installé. `face` = watch face,
 | Appui long | `WatchFaceDelegate.onPress()` = « touch and hold » (SDK 9.3.0) | face | seul geste reçu par le cadran |
 | Appui court | `BehaviorDelegate.onPress()` | app compagnon | seul geste qui accuse sans cocher |
 
-Le FR955 n'a **pas d'écran tactile** : `onTap` n'est utilisable qu'en mode
-configuration sur appareil tactile (`README.md:215-219`). Le cadran ne reçoit
-donc jamais d'appui court : l'accusé rapide se fait dans l'app compagnon ou par
-expiration à 1 h.
+Le FR955 **est tactile** : `~/.Garmin/ConnectIQ/Devices/fr955/simulator.json`
+déclare `display.isTouch = true` et `tap → onSelect` (gestes `hold`, `release`,
+swipes inclus). En revanche `WatchFaceDelegate.onTap()` est documenté
+« Only available in WatchFace config mode » (`WatchFaceDelegate.html`), tandis
+que `onPress()` est « touch and hold ». Le mapping exact fait l'objet d'un spike
+documenté dans `CURRENT-STATE.md` ; tant qu'il n'est pas prouvé, l'accusé rapide
+reste disponible dans l'app compagnon ou par expiration à 1 h.
 
 ## Contraintes
 

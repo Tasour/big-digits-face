@@ -41,8 +41,16 @@ conserve un décalage mesuré de 2 h ; **B seul est rejeté** car le pont par
 complications n'est pas prouvé sous CIQ 9.3.0.
 
 La watch-app utilise les événements réels quand `bedEventCount() >= 3`, sinon
-les heures `UserProfile` (`eventConfidence()`). La face, qui ne peut pas lire
-ces événements, utilise `UserProfile` et le documente comme repli.
+les heures `UserProfile` (`eventConfidence()`). Le réveil programmé est lu depuis `UserProfile.wakeTime` dans l'app
+(`upcomingWakeTime` est signalé non supporté sur `fr955` par `-l 3`) et depuis
+`upcomingWakeTime` dans le cadran quand disponible. Il est traité comme
+**réveil programmé** : `bedTarget = réveil − 480 min`,
+`écrans off = coucher − 60 min`, `caféine = coucher − 480 min`. Un réveil entre
+00 h et 04 h 30, ou décalé de plus de 2 h du lever moyen, est classé
+`:match` et déclenche un message dédié (ADR-0013). La lumière utilise
+`Weather.getSunrise()` et `getSunset()` réels dans l'app, avec repli NOAA
+symétrique sur la face. La face, qui ne peut pas lire les événements de l'app,
+utilise `UserProfile` et le documente comme repli.
 
 ## Conséquences
 

@@ -149,6 +149,47 @@ function sleepDebt() as Lang.Number {
 }
 
 (:background)
+function alarmMinute() as Lang.Number or Null {
+    // Sur fr955, `upcomingWakeTime` est signale non supporte par le compileur
+    // (-l 3) : on utilise l'heure de reveal configuree `wakeTime`, qui est la
+    // recurrence quotidienne equivalente. Le cadran garde `upcomingWakeTime`
+    // quand il est disponible.
+    var p = UserProfile.getProfile();
+    if (p == null || !(p has :wakeTime) || p.wakeTime == null) { return null; }
+    return ((p.wakeTime as Time.Duration).value() / 60) as Lang.Number;
+}
+
+(:background)
+function bedTarget() as Lang.Number {
+    var alarm = alarmMinute();
+    if (alarm != null) { return timingAlarmBed(alarm as Lang.Number, 480); }
+    return bedMinutes();
+}
+
+(:background)
+function screensOffMinute() as Lang.Number {
+    return timingScreensOff(bedTarget());
+}
+
+(:background)
+function nightAlarm() as Lang.Boolean {
+    var alarm = alarmMinute();
+    if (alarm == null) { return false; }
+    return timingNightAlarm(alarm as Lang.Number, wakeMinute());
+}
+
+(:background)
+function bedtimeSD() as Lang.Number {
+    var vals = [] as Lang.Array;
+    var today = dayIndex();
+    for (var i = 0; i < 7; i++) {
+        var v = App.Storage.getValue("sleep.bed." + (today - i).format("%d"));
+        if (v != null && v instanceof Lang.Number) { vals.add(v as Lang.Number); }
+    }
+    return timingCircularSD(vals);
+}
+
+(:background)
 function wakeMinute() as Lang.Number {
     var avg = confidentAverage("sleep.wake.");
     if (avg != null) { return avg as Lang.Number; }
@@ -188,9 +229,30 @@ function rawSunsetMinutes() as Lang.Number or Null {
 }
 
 (:background)
+function rawSunriseMinutes() as Lang.Number or Null {
+    if (!(Toybox has :Weather) || !(Weather has :getSunrise)) { return null; }
+    var pos = Position.getInfo();
+    if (pos == null || pos.position == null) { return null; }
+    var deg = (pos.position as Position.Location).toDegrees();
+    var loc = new Position.Location({
+        :latitude => deg[0], :longitude => deg[1], :format => :degrees
+    });
+    var moment = Weather.getSunrise(loc, Time.now());
+    if (moment == null) { return null; }
+    var d = Gregorian.info(moment, Time.FORMAT_SHORT);
+    return d.hour * 60 + d.min;
+}
+
+(:background)
 function sunsetMinutes() as Lang.Number {
     var sun = rawSunsetMinutes();
     return sun == null ? 1050 : sun as Lang.Number;
+}
+
+(:background)
+function sunriseMinutes() as Lang.Number {
+    var sun = rawSunriseMinutes();
+    return sun == null ? -1 : sun as Lang.Number;
 }
 
 (:background)
@@ -341,15 +403,20 @@ function stepsShort() as Lang.Boolean {
 (:background)
 function registerNext() as Void {
     var now = dayMinutes();
-    var bed = bedMinutes();
+    var bed = bedTarget();
     var wake = wakeMinute();
     var sun = sunsetMinutes();
-    var cands = [nextTime(700, timingLightStart(wake)), 750,
+    var rise = sunriseMinutes();
+    var light = rise >= 0 ? rise : timingLightStart(wake);
+    var ctx = buildContext();
+    var alarm = alarmMinute();
+    var cands = [nextTime(700, light), 750,
+                 (alarm == null ? 1440 : alarm as Lang.Number),
                  nextTime(1500, timingCaffeine(bed)),
                  sun - 2, sun, sun + 2,
-                 nextTime(1830, 1110), nextTime(2100, timingMod(wake + 30)),
-                 nextTime(2200, timingScreenStart(wake)),
-                 2230, timingMod(bed - 60)] as Lang.Array;
+                 nextTime(1830, 1110), nextTime(2100, timingNsdrTime(ctx)),
+                 nextTime(2200, screensOffMinute()),
+                 2230] as Lang.Array;
 
     for (var i = 1; i < cands.size(); i++) {
         var v = cands[i] as Lang.Number;
@@ -440,7 +507,7 @@ function buildContext() as Lang.Dictionary {
         if (info.stepGoal != null) { goal = info.stepGoal as Lang.Number; }
     }
     var wake = wakeMinute();
-    var bed = bedMinutes();
+    var bed = bedTarget();
     var span = bed - wake;
     if (span <= 0) { span += TIMING_DAY; }
     if (span <= 0 || span > 1200) { span = 720; }
@@ -454,12 +521,21 @@ function buildContext() as Lang.Dictionary {
         :now => dayMinutes(), :bed => bed, :wake => wake,
         :steps => steps, :goal => goal, :stressZ => stressZ(), :bb => bbn,
         :debt => sleepDebt(), :shortNight => (d != null && (d as Lang.Number) < TIMING_SLEEP_MIN),
-        :sunset => sunsetMinutes(), :span => span, :elapsed => elapsed
+        :bedSD => bedtimeSD(), :nightAlarm => nightAlarm(),
+        :sunrise => sunriseMinutes(), :sunset => sunsetMinutes(),
+        :span => span, :elapsed => elapsed
     } as Lang.Dictionary;
 }
 
 (:background)
 function evaluateSlot() as Lang.Number {
+    var alarm = alarmMinute();
+    if (alarm != null && nightAlarm() && timingAt(dayMinutes(), alarm as Lang.Number)
+        && !alreadyNotified(2400)) {
+        markNotified(2400);
+        App.Storage.setValue("diag.slot.reason", "Reveil de nuit");
+        return 2400;
+    }
     var r = timingChooseSlot(buildContext());
     var slot = r[:slot] as Lang.Number;
     if (slot < 0 || alreadyNotified(slot)) { return -1; }
@@ -478,8 +554,13 @@ function messageForSlot(slot as Lang.Number) as Lang.String {
     else if (slot == 1730) { msg = "Part regarder le coucher de soleil"; }
     else if (slot == 1830) { msg = "Marche 5 min, pas assez"; }
     else if (slot == 2100) {
-        msg = timingNsdrMinutes(sleepDebt(), stressZ()).format("%d") + " min de repos";
-    } else if (slot == 2200) { msg = "Ecrans off avant le coucher"; }
+        var score = timingNsdrScore(buildContext());
+        msg = timingNsdrDurationFromScore(score).format("%d") + " min de repos";
+    } else if (slot == 2200) {
+        msg = "Ecrans off a " + timingHHMM(screensOffMinute());
+    } else if (slot == 2400) {
+        msg = "Reveil de nuit : match? NSDR a prevoir";
+    }
     else if (slot == 2230) { msg = "1-3 soupirs physiologiques"; }
     else { return "Panneau de test"; }
     if (reason.equals("aucun")) { return msg; }

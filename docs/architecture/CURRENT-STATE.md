@@ -62,3 +62,33 @@
 | Scripts release/deploy `.prev` | Livrés : `release.sh`, `verify.sh`, `deploy.sh`, `RELEASES.md` | `./verify.sh` |
 
 Les trois binaires de production compilent en `-r` sans erreur. **Cause simulator identifiée le 2026-11-25** : fichier verrou de singleton `~/Sim-tasour` périmé, contenant le PID d'un simulateur mort (`142726`). Le binaire sortait donc avec `exit_group(-1)` (code 255) avant toute initialisation. Preuve : `strace -f` (`openat("/home/tasour/Sim-tasour", O_WRONLY|O_CREAT|O_EXCL) = -1 EEXIST`, puis `exit_group(-1)`). Correctif : supprimer le verrou quand aucun processus `bin/simulator` n'est vivant, puis relancer. Le simulateur est de nouveau opérationnel (PID 1064373, log `Debug: SetLayout`). Le JDK 21 local et les flags Qt testés n'étaient **pas** la cause. Commande de rejeu : `strace -f -o /tmp/sim.log <SDK>/bin/simulator <prg>` puis `tail -80 /tmp/sim.log | grep Sim-tasour`.
+
+## 6. Mise à jour du 2026-11-25 (tactile, réveil, lumière, NSDR)
+
+- **Correction matérielle** : l'affirmation « FR955 sans écran tactile » était
+  fausse. `~/.Garmin/ConnectIQ/Devices/fr955/simulator.json` déclare
+  `display.isTouch = true` et `tap → onSelect`, avec `hold`, `release` et les
+  swipes. `README.md`, `DATA-SOURCES.md` et l'ADR-0012 ont été corrigés.
+- **Spike `onTap`** : tentative de validation en mode normal sur le simulateur
+  `fr955`. La fenêtre du simulateur n'a pas pu être amenée au premier plan de
+  façon fiable (plusieurs dispatchers Hyprland refusés, fenêtre masquée), donc
+  l'observation est **non concluante = `notMeasured`**. Le SDK documente
+  `WatchFaceDelegate.onTap()` comme « Only available in WatchFace config mode »
+  (`doc/Toybox/WatchUi/WatchFaceDelegate.html`) et `onPress()` comme
+  « touch and hold ». Le mapping retenu reste : appui long = validation sur le
+  cadran, accusé court dans l'app compagnon, expiration à 1 h.
+- **Réveil programmé** : `UserProfile.Profile.wakeTime` est lu comme réveil
+  posé dans l'app ; `upcomingWakeTime` y est signalé non supporté sur `fr955`
+  par `-l 3`, mais reste utilisé par le cadran sans avertissement. Coucher visé = réveil − 8 h, écrans off = coucher − 60 min,
+  caféine = coucher − 8 h. Un réveil ≤ 04 h 30 ou décalé de > 2 h du lever
+  moyen est classé `:match` (hypothèse « match de foot » du porteur, pas une
+  mesure) et déclenche un message NSDR dédié.
+- **Lumière** : `Weather.getSunrise()` et `getSunset()` sont utilisés dans
+  l'app compagnon ; la face garde le repli NOAA symétrique (`1440 − sunset`)
+  faute d'accès fiable à `Weather` dans le cadran.
+- **NSDR** : score pondéré à cinq signaux (ADR-0013), durée 10/20/30 min dans
+  la plage du livre, créneau selon la cause dominante. 30 tests unitaires verts.
+- **Gates réels au 2026-11-25** : `verify.sh` vert (G0, G1 trois builds `-l 3`,
+  G2 30 tests, G3 captures, G4b parité `Timing.mc`, G4 provenance). Le tableau
+  §5 ci-dessus décrit l'état *avant* ces corrections et n'est pas effacé : il
+  sert de témoin de l'historique de réparation.

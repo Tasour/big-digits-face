@@ -378,8 +378,37 @@ class BigDigitsView extends WatchUi.WatchFace {
         return 420;
     }
 
+    private function faceAlarm() as Lang.Number or Null {
+        var profile = UserProfile.getProfile();
+        if (profile != null && profile has :upcomingWakeTime &&
+            profile.upcomingWakeTime != null) {
+            return minutesOfMoment(profile.upcomingWakeTime);
+        }
+        return null;
+    }
+
+    private function faceBedTarget() as Lang.Number {
+        var alarm = faceAlarm();
+        if (alarm != null && (alarm as Lang.Number) >= 0) {
+            return timingAlarmBed(alarm as Lang.Number, 480);
+        }
+        return faceBed();
+    }
+
+    private function faceScreensOff() as Lang.Number {
+        return timingScreensOff(faceBedTarget());
+    }
+
+    private function faceSunrise() as Lang.Number {
+        var sunset = sunsetMinutes(Gregorian.info(Time.now(), Time.FORMAT_SHORT));
+        if (sunset < 0) { return -1; }
+        return timingMod(TIMING_DAY - sunset);
+    }
+
     private function wakeWindow(nowMin as Lang.Number) as Lang.Boolean {
-        return timingAt(nowMin, timingLightStart(faceWake())) && sleepMinutes() < TIMING_SLEEP_MIN;
+        var rise = faceSunrise();
+        var light = rise >= 0 ? rise : timingLightStart(faceWake());
+        return timingWindow(nowMin, light, 60) && sleepMinutes() < TIMING_SLEEP_MIN;
     }
 
     private function isSteppingShort(steps as Lang.Number, goal as Lang.Number) as Lang.Boolean {
@@ -483,7 +512,16 @@ class BigDigitsView extends WatchUi.WatchFace {
         var nowMin = hour * 60 + minute;
         var profile = UserProfile.getProfile();
 
-        // Lever + 30 min — lumiere matinale (chunk_101).
+        // Reveil programme au milieu de la nuit : hypothese "match de foot".
+        var alarm = faceAlarm();
+        if (alarm != null && (alarm as Lang.Number) <= 270 &&
+            timingAt(nowMin, alarm as Lang.Number)) {
+            setPopup(2400, "Reveil de nuit", "Match? NSDR a prevoir",
+                     "Reveil " + timingHHMM(alarm as Lang.Number), C_BORDER_CALME);
+            return;
+        }
+
+        // Lever du soleil — lumiere matinale (Weather cote app, NOAA ici).
         if (timingAt(nowMin, faceNextTime(700, timingLightStart(faceWake()))) && sleepMinutes() < TIMING_SLEEP_MIN) {
             setPopup(700, res(Rez.Strings.Pup07Title), res(Rez.Strings.Pup07Msg),
                      "Lever " + timingHHMM(faceWake()) + " + 30 min", C_BORDER_LUMIERE);
@@ -498,9 +536,9 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
 
         // Coucher - 8 h — Cafeine / alcool (chunk_399), heure de repli UserProfile.
-        if (timingAt(nowMin, faceNextTime(1500, timingCaffeine(faceBed())))) {
+        if (timingAt(nowMin, faceNextTime(1500, timingCaffeine(faceBedTarget())))) {
             setPopup(1500, res(Rez.Strings.Pup15Title), res(Rez.Strings.Pup15Msg),
-                     "Coucher " + timingHHMM(faceBed()) + " - 8 h", C_BORDER_STIMULANTS);
+                     "Coucher " + timingHHMM(faceBedTarget()) + " - 8 h", C_BORDER_STIMULANTS);
             return;
         }
 
@@ -528,17 +566,21 @@ class BigDigitsView extends WatchUi.WatchFace {
             return;
         }
 
-        // NSDR — 4 moments du livre, proxy face-only.
-        if (stress > 50 || (profile != null && sleepMinutes() < 420 && hour >= 10 && hour <= 16)) {
-            setPopup(2100, res(Rez.Strings.Pup21Title), nsdrMessage(hour),
-                     nsdrContext(hour), C_BORDER_NSDR);
+        // NSDR — duree pilotee par le stress et la nuit courte cote face.
+        if (stress > 50 || (profile != null && sleepMinutes() < TIMING_SLEEP_MIN && hour >= 10 && hour <= 16)) {
+            var mins = stress >= 60 ? 30 : (stress >= 40 ? 20 : 10);
+            var ctx = "Stress " + stress.format("%d") +
+                      (sleepMinutes() < TIMING_SLEEP_MIN ? " / nuit courte" : "");
+            setPopup(2100, res(Rez.Strings.Pup21Title),
+                     mins.format("%d") + " min de repos", ctx, C_BORDER_NSDR);
             return;
         }
 
         // Lever - 10 h — fenetre de lumiere vive a eviter (chunk_211).
-        if (timingAt(nowMin, faceNextTime(2200, timingScreenStart(faceWake())))) {
+        if (timingAt(nowMin, faceNextTime(2200, faceScreensOff()))) {
             setPopup(2200, res(Rez.Strings.Pup22Title), res(Rez.Strings.Pup22Msg),
-                     "Lever " + timingHHMM(faceWake()) + " - 10 h", C_BORDER_ECRANS);
+                     "Coucher " + timingHHMM(faceBedTarget()) + " / off " +
+                     timingHHMM(faceScreensOff()), C_BORDER_ECRANS);
             return;
         }
 
