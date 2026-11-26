@@ -212,3 +212,14 @@ l'app compagnon n'a pas été ouverte sur le device et que son rapport n'a pas
   8/8, 1 `notMeasured` (coucher solaire non disponible en simulation).
 - La capture visuelle du résultat sur le cadran est `notMeasured` : la fenêtre
   du simulateur n'a pas pu être recadrée sur le cadran.
+
+## 14. Déploiement du bandeau d'aperçu (2026-11-26)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/012`. Trois binaires déployés puis
+relus après remontage : face 40 924 o, compagnon 41 724 o, chrono 10 108 o —
+conformes à `RELEASES.md`. `GARMIN/Apps` ne contient aucun autre `.prg`.
+
+Les deux drapeaux `FACE_SELF_TEST_BUILD` et `SELF_TEST_BUILD` sont encore à
+`true` : cadran et compagnon lancent donc leur auto-test à l'ouverture, avec
+le bandeau rectangulaire. Ils devront repasser à `false` après transcription
+des écrans `RESULTATS` et redéploiement de la version normale.
