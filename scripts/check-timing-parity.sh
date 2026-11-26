@@ -17,12 +17,14 @@ if ! diff -q "$SHARED" "$TMP" >/dev/null; then
   exit 1
 fi
 
-# Le module de geometrie est une copie exacte : aucune annotation a retirer.
-if ! diff -q "shared/DiagLayout.mc" "companion/source/DiagLayout.mc" >/dev/null; then
-  echo "KO  divergence DiagLayout.mc (face = compagnon)" >&2
-  diff -u "shared/DiagLayout.mc" "companion/source/DiagLayout.mc" | head -40 >&2
-  exit 1
-fi
+# Les modules sans annotation sont des copies exactes.
+for module in DiagLayout FeatureProbes ScriptVm ScriptLibrary; do
+  if ! diff -q "shared/$module.mc" "companion/source/$module.mc" >/dev/null; then
+    echo "KO  divergence $module.mc (face = compagnon)" >&2
+    diff -u "shared/$module.mc" "companion/source/$module.mc" | head -40 >&2
+    exit 1
+  fi
+done
 
-echo "OK  parite Timing.mc et DiagLayout.mc (face = compagnon)"
+echo "OK  parite Timing.mc, DiagLayout.mc, FeatureProbes.mc, ScriptVm.mc et ScriptLibrary.mc"
 exit 0

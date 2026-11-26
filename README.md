@@ -148,6 +148,26 @@ La montre décide seule. Le téléphone ne fait que corriger, une fois par jour.
   pour rester dans le cercle du cadran quelles que soient les métriques de
   police du device.
 
+### Validation des features sur la montre
+
+Un appui long sur `MENU` dans l'app compagnon ouvre le menu **Validation** :
+
+- **Tout lancer** : 8 sondes (`contract`, `sleep`, `light`, `stress`, `nsdr`,
+  `ble`, `layout`, `storage`), chacune avec un verdict `ok` / `fail` /
+  `notMeasured` et un rapport texte lisible à l'écran (pagination UP/DOWN).
+- Une entrée par sonde, **Rapport complet**, et quatre scripts texte (`quick`,
+  `contract`, `sleep`, `all`) écrits dans un DSL restreint.
+- Le DSL accepte `CHECK`, `EXPECT`, `PRINT`, `LOG`, `SKIP` et `END`, sans
+  boucle ni appel système arbitraire. Il ne peut lancer que les sondes
+  enregistrées. Les scripts sont embarqués à la compilation : le MCP peut
+  vérifier leur syntaxe avec `ciq_validation_script`, mais ne peut pas en
+  injecter dans la montre via MTP.
+- Chaque résultat est écrit dans `App.Storage` et tracé par
+  `System.println("VALIDATION …")`, lisible côté simulateur par
+  `ciq_validation_report`. Sur la montre, le rapport est **lu à l'écran** :
+  le `System.println` n'entre pas dans `CIQ_LOG`, donc `notMeasured` côté MCP
+  tant que le rapport n'a pas été communiqué par toi.
+
 Le contrat complet, offset par offset, est dans
 `docs/architecture/PHONE-CONTRACT.md`. Vérification du format sans téléphone :
 

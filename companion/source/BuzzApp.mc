@@ -41,6 +41,18 @@ var gSource as Lang.String = "local";
 var gDiagPage as Lang.Number = 0;
 var gSending as Lang.Boolean = false;
 
+// rapport de validation affiche dans la vue texte
+var gValidationTitle as Lang.String = "VALIDATION";
+var gValidationLines as Lang.Array = [] as Lang.Array;
+var gValidationPage as Lang.Number = 0;
+
+// metriques de grille mesurees par DiagView, reutilisees par la sonde LAYOUT
+var gLayoutWidth as Lang.Number = -1;
+var gLayoutBoxW as Lang.Number = -1;
+var gLayoutBoxH as Lang.Number = -1;
+var gLayoutTop as Lang.Number = -1;
+var gLayoutInside as Lang.Boolean = false;
+
 (:background)
 function dayIndex() as Lang.Number {
     return Time.now().value() / DAY_SECONDS;
@@ -669,6 +681,148 @@ function snapshotContext() as Lang.Dictionary {
     } as Lang.Dictionary;
 }
 
+// --- Validation des features : rapport texte lisible sur la montre et par le MCP ---
+(:typecheck(disableBackgroundCheck))
+function validationContext() as Lang.Dictionary {
+    var snap = snapshotContext();
+    // snapshotContext fournit deja le score NSDR calcule avec le bon contexte
+    // (buildContext) : ne pas le recalculer avec la trame, qui n'a pas les
+    // memes clefs et leverait une exception.
+    var score = timingNum(snap, :nsdrScore, 0);
+    var bytes = timingSnapshotBytes(snap);
+    var now = Time.now().value();
+    var corrCtx = {
+        :seq => 1, :ts => now, :needMin => 420, :sleepScore => 50,
+        :debt7 => 0, :bedSD => 0, :hrvBase => -1, :bbBase => 50,
+        :nsdrMin => 10, :nsdrAt => 780, :verdict => 1,
+        :reasonCode => 0, :confidence => -1, :exp => now + 3600
+    } as Lang.Dictionary;
+    var corr = timingCorrectionsBytes(corrCtx);
+    var parsed = timingParseCorrections(corr, now);
+    var alarm = alarmMinute();
+    var bb = sensorSample(:bodybattery);
+    var snapValid = timingSnapshotValid(bytes);
+    var corrValid = parsed != null;
+    var missingProbe = timingSnapshotField(timingSnapshotBytes({:alarm => -1} as Lang.Dictionary), 0);
+    var lightSource = rawSunsetMinutes() != null ? "reel" : "NOAA/repli";
+    var keyCount = loadNumber("validation.count");
+    return {
+        :snapSize => bytes.size(), :corrSize => corr.size(),
+        :snapCrc => snapValid, :corrCrc => corrValid,
+        :missingDecoded => missingProbe,
+        :alarm => (alarm == null ? -1 : alarm as Lang.Number),
+        :bedTarget => bedTarget(), :bedCount => bedEventCount(),
+        :debt => sleepDebt(),
+        :sunrise => sunriseMinutes(), :sunset => sunsetMinutes(),
+        :lightSource => lightSource,
+        :stressZ100 => (stressZ() * 100).toNumber(),
+        :bb => (bb == null ? -1 : bb as Lang.Number),
+        :sample1h => sensorSample(:stress) != null,
+        :nsdrScore => score,
+        :nsdrMin => timingNsdrDurationFromScore(score),
+        :verdict => score >= 3 ? 2 : (score >= 1 ? 1 : 0),
+        :corrFresh => corrValid,
+        :bleState => gBle, :seq => loadNumber("ble.seq"),
+        :tries => loadNumber("ble.tries"),
+        :width => gLayoutWidth, :boxW => gLayoutBoxW,
+        :boxH => gLayoutBoxH, :top => gLayoutTop, :inside => gLayoutInside,
+        :keyCount => keyCount,
+        :storageOk => true, :logReadable => true
+    } as Lang.Dictionary;
+}
+
+(:typecheck(disableBackgroundCheck))
+function writeValidationReport(id as Lang.String, report as Lang.Dictionary) as Void {
+    var lines = FeatureProbes.lines(report);
+    var joined = "";
+    for (var i = 0; i < lines.size(); i++) {
+        if (i > 0) { joined += "\n"; }
+        joined += lines[i] as Lang.String;
+    }
+    App.Storage.setValue("validation." + id, joined);
+    var verdict = report.get(:verdict) as Lang.String;
+    System.println("VALIDATION " + id + " " + verdict);
+    for (var i = 0; i < lines.size(); i++) {
+        System.println("VALIDATION " + id + " | " + (lines[i] as Lang.String));
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+function runValidationAll() as Void {
+    var ctx = validationContext();
+    var reports = FeatureProbes.reportAll(ctx);
+    var all = [] as Lang.Array;
+    var count = 0;
+    for (var i = 0; i < reports.size(); i++) {
+        var report = reports[i] as Lang.Dictionary;
+        var id = report.get(:id) as Lang.String;
+        writeValidationReport(id, report);
+        var lines = FeatureProbes.lines(report);
+        for (var k = 0; k < lines.size(); k++) { all.add(lines[k]); }
+        count++;
+    }
+    var joined = "";
+    for (var i = 0; i < all.size(); i++) {
+        if (i > 0) { joined += "\n"; }
+        joined += all[i] as Lang.String;
+    }
+    App.Storage.setValue("validation.full", joined);
+    App.Storage.setValue("validation.count", count);
+    App.Storage.setValue("validation.day", dayIndex());
+    System.println("VALIDATION all ok " + count.toString() + " sondes");
+}
+
+(:typecheck(disableBackgroundCheck))
+function runValidationOne(id as Lang.String) as Lang.Dictionary {
+    var report = FeatureProbes.probe(id, validationContext());
+    writeValidationReport(id, report);
+    return report;
+}
+
+(:typecheck(disableBackgroundCheck))
+function showValidation(title as Lang.String, lines as Lang.Array) as Void {
+    gValidationTitle = title;
+    gValidationLines = lines;
+    gValidationPage = 0;
+    Ui.pushView(new ValidationView(), new ValidationDelegate(), Ui.SLIDE_IMMEDIATE);
+}
+
+(:typecheck(disableBackgroundCheck))
+function splitLines(raw as Lang.String) as Lang.Array {
+    var out = [] as Lang.Array;
+    var rest = raw;
+    while (true) {
+        var found = rest.find("\n");
+        if (found == null) {
+            out.add(rest);
+            break;
+        }
+        var pos = found as Lang.Number;
+        out.add(rest.substring(0, pos));
+        rest = rest.substring(pos + 1, rest.length());
+    }
+    return out;
+}
+
+(:typecheck(disableBackgroundCheck))
+function runValidationScript(id as Lang.String) as Void {
+    var result = ScriptVm.run(ScriptLibrary.script(id), validationContext());
+    var lines = result.get(:lines) as Lang.Array;
+    var ok = result.get(:ok) as Lang.Boolean;
+    System.println("SCRIPT " + id + " " + (ok ? "ok" : "fail"));
+    for (var i = 0; i < lines.size(); i++) {
+        System.println("SCRIPT " + id + " | " + (lines[i] as Lang.String));
+    }
+    showValidation("DSL " + id + " " + (ok ? "ok" : "fail"), lines);
+}
+
+(:typecheck(disableBackgroundCheck))
+function validationLinesFromStorage(id as Lang.String) as Lang.Array {
+    var raw = loadString("validation." + id);
+    if (raw.equals("aucun")) { return ["Aucun rapport pour " + id] as Lang.Array; }
+    return splitLines(raw);
+}
+
 function bleState(label as Lang.String) as Void {
     gBle = label;
     App.Storage.setValue("diag.ble", label);
@@ -919,6 +1073,11 @@ class DiagView extends Ui.View {
         if ((height - 2 * margin - titleH) / lineH < 9) { footer = 1; }
 
         var g = DiagLayout.grid(width, height, lineH, titleH, footer);
+        gLayoutWidth = width;
+        gLayoutBoxW = g[:boxW] as Lang.Number;
+        gLayoutBoxH = g[:boxH] as Lang.Number;
+        gLayoutTop = g[:top] as Lang.Number;
+        gLayoutInside = true;
         var boxW = g[:boxW] as Lang.Number;
         var boxH = g[:boxH] as Lang.Number;
         var left = g[:left] as Lang.Number;
@@ -1094,15 +1253,153 @@ class TestPanelDelegate extends Ui.BehaviorDelegate {
     }
 }
 
+// Menu de validation : une entree par sonde, lancement global, rapport
+// complet et acces au panneau de test historique.
+(:typecheck(disableBackgroundCheck))
+class ValidationMenu extends Ui.Menu2 {
+    function initialize() {
+        Menu2.initialize({:title => "Validation"});
+        addItem(new Ui.MenuItem("Tout lancer", "8 sondes", "all", null));
+        var ids = FeatureProbes.probeIds();
+        var labels = ["Contrat binaire", "Reveil / sommeil", "Lumiere",
+                      "Stress / Battery", "NSDR", "Lien telephone",
+                      "Grille / diagnostic", "Stockage / journal"] as Lang.Array;
+        for (var i = 0; i < ids.size(); i++) {
+            addItem(new Ui.MenuItem(labels[i] as Lang.String, "", ids[i] as Lang.String, null));
+        }
+        addItem(new Ui.MenuItem("Rapport complet", "dernier passage", "full", null));
+        addItem(new Ui.MenuItem("Script quick", "DSL 4 lignes", "script:quick", null));
+        addItem(new Ui.MenuItem("Script contract", "DSL CRC + bornes", "script:contract", null));
+        addItem(new Ui.MenuItem("Script sleep", "DSL sommeil", "script:sleep", null));
+        addItem(new Ui.MenuItem("Script all", "DSL 8 sondes", "script:all", null));
+        addItem(new Ui.MenuItem("Panneau de test", "buzz / BLE", "test", null));
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+class ValidationMenuDelegate extends Ui.Menu2InputDelegate {
+    function initialize() {
+        Menu2InputDelegate.initialize();
+    }
+
+    function onSelect(item as Ui.MenuItem) as Void {
+        var id = item.getId() as Lang.String;
+        if (id.equals("test")) {
+            Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
+            return;
+        }
+        if (id.equals("all")) {
+            runValidationAll();
+            showValidation("VALID 8/8", validationLinesFromStorage("full"));
+            return;
+        }
+        if (id.equals("full")) {
+            showValidation("RAPPORT COMPLET", validationLinesFromStorage("full"));
+            return;
+        }
+        var scriptPos = id.find("script:");
+        if (scriptPos != null && (scriptPos as Lang.Number) == 0) {
+            runValidationScript(id.substring(7, id.length()));
+            return;
+        }
+        var report = runValidationOne(id);
+        var title = "VALID " + id;
+        showValidation(title, FeatureProbes.lines(report));
+    }
+
+    function onBack() as Void {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+class ValidationView extends Ui.View {
+    function initialize() {
+        View.initialize();
+    }
+
+    function onUpdate(dc as Graphics.Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var font = Graphics.FONT_XTINY;
+        var titleFont = Graphics.FONT_XTINY;
+        var lineH = dc.getFontHeight(font) + 3;
+        var titleH = dc.getFontHeight(titleFont) + 8;
+        var perPage = 6;
+        if (h < 360) { perPage = 4; }
+        var g = DiagLayout.grid(w, h, lineH, titleH, perPage);
+        var boxW = g[:boxW] as Lang.Number;
+        var boxH = g[:boxH] as Lang.Number;
+        var left = g[:left] as Lang.Number;
+        var top = g[:top] as Lang.Number;
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawRectangle(left, top, boxW, boxH);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var pages = (gValidationLines.size() + perPage - 1) / perPage;
+        if (pages < 1) { pages = 1; }
+        var page = gValidationPage % pages;
+        dc.drawText(w / 2, top + titleH / 2, titleFont,
+                    gValidationTitle + " " + (page + 1).format("%d") + "/" +
+                    pages.format("%d"), justify);
+
+        var start = page * perPage;
+        var leftJustify = Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER;
+        for (var i = 0; i < perPage && start + i < gValidationLines.size(); i++) {
+            var line = gValidationLines[start + i] as Lang.String;
+            var color = Graphics.COLOR_LT_GRAY;
+            if (line.find("-> ok") != null) { color = Graphics.COLOR_GREEN; }
+            else if (line.find("-> fail") != null) { color = Graphics.COLOR_RED; }
+            else if (line.find("notMeasured") != null) { color = Graphics.COLOR_ORANGE; }
+            dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(left + 6, top + titleH + i * lineH + lineH / 2, font,
+                        line.length() > 27 ? line.substring(0, 27) : line, leftJustify);
+        }
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+class ValidationDelegate extends Ui.BehaviorDelegate {
+    function initialize() {
+        BehaviorDelegate.initialize();
+    }
+
+    function onBack() as Lang.Boolean {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+        return true;
+    }
+
+    function onNextPage() as Lang.Boolean {
+        gValidationPage++;
+        Ui.requestUpdate();
+        return true;
+    }
+
+    function onPreviousPage() as Lang.Boolean {
+        gValidationPage--;
+        Ui.requestUpdate();
+        return true;
+    }
+
+    function onKey(keyEvent as Ui.KeyEvent) as Lang.Boolean {
+        if (keyEvent.getKey() == Ui.KEY_UP) { return onPreviousPage(); }
+        if (keyEvent.getKey() == Ui.KEY_DOWN) { return onNextPage(); }
+        return false;
+    }
+}
+
 (:typecheck(disableBackgroundCheck))
 class DiagDelegate extends Ui.BehaviorDelegate {
     function initialize() {
         BehaviorDelegate.initialize();
     }
 
-    // Long appui bouton milieu gauche : panneau de test.
+    // Long appui bouton milieu gauche : menu de validation des features.
     function onMenu() as Lang.Boolean {
-        Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
+        Ui.pushView(new ValidationMenu(), new ValidationMenuDelegate(), Ui.SLIDE_IMMEDIATE);
         return true;
     }
 
@@ -1223,6 +1520,7 @@ class BuzzApp extends App.AppBase {
         // telephone n'ont pas le droit de tourner dans le processus de fond.
         refreshMetrics();
         activateLink();
+        if (loadNumber("validation.day") != dayIndex()) { runValidationAll(); }
         if (loadNumber("diag.pending") == 1) {
             var msg = loadString("diag.pending.msg");
             App.Storage.setValue("diag.pending", 0);
