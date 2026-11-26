@@ -167,3 +167,33 @@ Les trois binaires de production compilent en `-r` sans erreur. **Cause simulato
 - `GARMIN/Apps` ne contient toujours aucun autre `.prg` : rien n'a été effacé.
 - `CIQ_LOG.BAK` ne contient que les deux erreurs du 25/11 10:21Z, antérieures
   au correctif de démarrage. Aucune nouvelle erreur enregistrée.
+
+## 12. Validation intégrée au compagnon (2026-11-26)
+
+- **8 sondes pures** dans `shared/FeatureProbes.mc`, copiées à l'identique
+  dans le compagnon et vérifiées par `check-timing-parity.sh` avec 5 modules.
+- **Menu Validation** (appui long MENU) : lancement global, une entrée par
+  sonde, rapport complet, 4 scripts texte et accès au panneau de test.
+- **Rapport texte** paginé (UP/DOWN) avec verdicts `ok` / `fail` /
+  `notMeasured`, écrit dans `App.Storage` et tracé par `System.println`.
+- **DSL restreint** (`ScriptVm.mc`, `ScriptLibrary.mc`) : `CHECK`, `EXPECT`,
+  `PRINT`, `LOG`, `SKIP`, `END`. Aucun appel système arbitraire, 32 lignes
+  maximum, scripts embarqués à la compilation.
+- **MCP** : 25 outils, dont `ciq_validation_report`, `ciq_validation_run`,
+  `ciq_validation_script` et `ciq_validation_clear`. Les lignes `VALIDATION`
+  du simulateur sont lues dans sa console ; la montre ne les expose pas dans
+  `CIQ_LOG`, donc le rapport réel sur device doit être lu à l'écran puis
+  communiqué — sinon `notMeasured`.
+- **Preuves** : 77 tests verts, G0–G4b verts, captures du menu, d'un rapport
+  et d'un script relues.
+
+### Déploiement du 2026-11-26
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/021`, trois binaires copiés puis
+relus après remontage : face 36 508 o, compagnon 39 356 o, chrono 10 108 o.
+Tailles conformes à `RELEASES.md`. `GARMIN/Apps` ne contient aucun autre
+`.prg` : rien n'a été effacé.
+
+Le rapport de validation sur la montre reste **`notMeasured`** tant que
+l'app compagnon n'a pas été ouverte sur le device et que son rapport n'a pas
+été lu visuellement.
