@@ -21,7 +21,7 @@ using Toybox.WatchUi as Ui;
 
 // Passe a true pour la livraison self-test, puis a false pour revenir au
 // compagnon normal apres transcription du rapport.
-const SELF_TEST_BUILD = true;
+const SELF_TEST_BUILD = false;
 
 (:background)
 const DAY_SECONDS = 86400;

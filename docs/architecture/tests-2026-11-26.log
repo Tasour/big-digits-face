@@ -1,21 +1,21 @@
 ------------------------------------------------------------------------------
 Executing test diagGridDeviceMetrics...
-DEBUG (19:49): diagGridDevice=299/62/330
+DEBUG (05:04): diagGridDevice=299/62/330
 PASS
 ------------------------------------------------------------------------------
 Executing test diagGridSimulatorMetrics...
-DEBUG (19:49): diagGridSim=200/127
+DEBUG (05:04): diagGridSim=200/127
 PASS
 ------------------------------------------------------------------------------
 Executing test diagGridStaysInCircle...
 PASS
 ------------------------------------------------------------------------------
 Executing test diagGridFooterBelowRows...
-DEBUG (19:49): diagGridFooter=307/341
+DEBUG (05:04): diagGridFooter=307/341
 PASS
 ------------------------------------------------------------------------------
 Executing test probeContractOk...
-DEBUG (19:49): probeContract=ok
+DEBUG (05:04): probeContract=ok
 PASS
 ------------------------------------------------------------------------------
 Executing test probeContractRejectsBadCrc...
@@ -43,14 +43,14 @@ Executing test probeStorageOk...
 PASS
 ------------------------------------------------------------------------------
 Executing test probeMissingIsNotMeasured...
-DEBUG (19:49): probeMissing=notMeasured
+DEBUG (05:04): probeMissing=notMeasured
 PASS
 ------------------------------------------------------------------------------
 Executing test probeUnknownIsNotMeasured...
 PASS
 ------------------------------------------------------------------------------
 Executing test probeAllCoversEightFeatures...
-DEBUG (19:49): probeAll=9
+DEBUG (05:04): probeAll=9
 PASS
 ------------------------------------------------------------------------------
 Executing test probeLinesCarryReport...
@@ -60,31 +60,31 @@ Executing test probeVibrationReportsSetting...
 PASS
 ------------------------------------------------------------------------------
 Executing test habitNoGap...
-DEBUG (19:49): habitNoGap = 01
+DEBUG (05:04): habitNoGap = 01
 PASS
 ------------------------------------------------------------------------------
 Executing test habitThreeDaysMissing...
-DEBUG (19:49): habitThreeDaysMissing = 08
+DEBUG (05:04): habitThreeDaysMissing = 08
 PASS
 ------------------------------------------------------------------------------
 Executing test habitSevenDaysMissing...
-DEBUG (19:49): habitSevenDaysMissing = 00
+DEBUG (05:04): habitSevenDaysMissing = 00
 PASS
 ------------------------------------------------------------------------------
 Executing test habitClockBackward...
-DEBUG (19:49): habitClockBackward = 01
+DEBUG (05:04): habitClockBackward = 01
 PASS
 ------------------------------------------------------------------------------
 Executing test habitFullWeek...
-DEBUG (19:49): habitFullWeek = 7c
+DEBUG (05:04): habitFullWeek = 7c
 PASS
 ------------------------------------------------------------------------------
 Executing test weekdaySunday...
-DEBUG (19:49): weekdaySunday = D
+DEBUG (05:04): weekdaySunday = D
 PASS
 ------------------------------------------------------------------------------
 Executing test weekdayTuesdaySequence...
-DEBUG (19:49): weekdayTuesdaySequence = MLDSVJM
+DEBUG (05:04): weekdayTuesdaySequence = MLDSVJM
 PASS
 ------------------------------------------------------------------------------
 Executing test resetWhenNeverStored...
@@ -100,83 +100,83 @@ Executing test keepWhenFutureDayIsIgnored...
 PASS
 ------------------------------------------------------------------------------
 Executing test snapSize...
-DEBUG (19:49): snapSize=62
+DEBUG (05:04): snapSize=62
 PASS
 ------------------------------------------------------------------------------
 Executing test snapCrcValid...
-DEBUG (19:49): snapCrcValid=true
+DEBUG (05:04): snapCrcValid=true
 PASS
 ------------------------------------------------------------------------------
 Executing test snapCrcRejectsBitFlip...
-DEBUG (19:49): snapBitFlip=false
+DEBUG (05:04): snapBitFlip=false
 PASS
 ------------------------------------------------------------------------------
 Executing test snapRoundtripAlarm...
-DEBUG (19:49): snapAlarm=390
+DEBUG (05:04): snapAlarm=390
 PASS
 ------------------------------------------------------------------------------
 Executing test snapRoundtripSteps...
-DEBUG (19:49): snapSteps=12345
+DEBUG (05:04): snapSteps=12345
 PASS
 ------------------------------------------------------------------------------
 Executing test snapRoundtripTimestamp...
-DEBUG (19:49): snapTs=1764100000
+DEBUG (05:04): snapTs=1764100000
 PASS
 ------------------------------------------------------------------------------
 Executing test snapRoundtripDaySeq...
-DEBUG (19:49): snapDay=20450 seq=7
+DEBUG (05:04): snapDay=20450 seq=7
 PASS
 ------------------------------------------------------------------------------
 Executing test snapMissingIsMinusOne...
-DEBUG (19:49): snapMissing=-1/-1/-1
+DEBUG (05:04): snapMissing=-1/-1/-1
 PASS
 ------------------------------------------------------------------------------
 Executing test snapZeroIsNotMissing...
-DEBUG (19:49): snapZero=0
+DEBUG (05:04): snapZero=0
 PASS
 ------------------------------------------------------------------------------
 Executing test snapRejectsTruncated...
-DEBUG (19:49): snapTruncated=null
+DEBUG (05:04): snapTruncated=null
 PASS
 ------------------------------------------------------------------------------
 Executing test corrValidAccepted...
-DEBUG (19:49): corrNeed=480 nsdr=20
+DEBUG (05:04): corrNeed=480 nsdr=20
 PASS
 ------------------------------------------------------------------------------
 Executing test corrArrayAccepted...
-DEBUG (19:49): corrArray=ok
+DEBUG (05:04): corrArray=ok
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsVersion...
-DEBUG (19:49): corrVersion=rejete
+DEBUG (05:04): corrVersion=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsLength...
-DEBUG (19:49): corrLength=rejete
+DEBUG (05:04): corrLength=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsCrc...
-DEBUG (19:49): corrCrc=rejete
+DEBUG (05:04): corrCrc=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsExpired...
-DEBUG (19:49): corrExpired=rejete
+DEBUG (05:04): corrExpired=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsMinute...
-DEBUG (19:49): corrMinute=rejete
+DEBUG (05:04): corrMinute=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsNsdrValue...
-DEBUG (19:49): corrNsdr=rejete
+DEBUG (05:04): corrNsdr=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsNull...
-DEBUG (19:49): corrNull=rejete
+DEBUG (05:04): corrNull=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test corrRejectsWrongType...
-DEBUG (19:49): corrType=rejete
+DEBUG (05:04): corrType=rejete
 PASS
 ------------------------------------------------------------------------------
 Executing test popupTopOn955...
@@ -210,7 +210,7 @@ Executing test previewHasColor...
 PASS
 ------------------------------------------------------------------------------
 Executing test vmQuickOk...
-DEBUG (19:49): vmQuick=termine
+DEBUG (05:04): vmQuick=termine
 PASS
 ------------------------------------------------------------------------------
 Executing test vmContractOk...
@@ -253,95 +253,95 @@ Executing test effectiveStressAddsOneStep...
 PASS
 ------------------------------------------------------------------------------
 Executing test timingWrap...
-DEBUG (19:49): timingWrap = 1380
+DEBUG (05:04): timingWrap = 1380
 PASS
 ------------------------------------------------------------------------------
 Executing test timingCircular...
-DEBUG (19:49): timingCircular = 0
+DEBUG (05:04): timingCircular = 0
 PASS
 ------------------------------------------------------------------------------
 Executing test timingTempAt...
-DEBUG (19:49): timingTempAt = 265
+DEBUG (05:04): timingTempAt = 265
 PASS
 ------------------------------------------------------------------------------
 Executing test timingScreenAt...
-DEBUG (19:49): timingScreenAt = 1225
+DEBUG (05:04): timingScreenAt = 1225
 PASS
 ------------------------------------------------------------------------------
 Executing test timingCaffeineAt...
-DEBUG (19:49): timingCaffeineAt = 924
+DEBUG (05:04): timingCaffeineAt = 924
 PASS
 ------------------------------------------------------------------------------
 Executing test timingDebt...
-DEBUG (19:49): timingDebt = 161
+DEBUG (05:04): timingDebt = 161
 PASS
 ------------------------------------------------------------------------------
 Executing test timingZNoBaseline...
-DEBUG (19:49): timingZNoBaseline = 0
+DEBUG (05:04): timingZNoBaseline = 0
 PASS
 ------------------------------------------------------------------------------
 Executing test timingZPositive...
-DEBUG (19:49): timingZPositive = 2
+DEBUG (05:04): timingZPositive = 2
 PASS
 ------------------------------------------------------------------------------
 Executing test timingStepNeed...
-DEBUG (19:49): timingStepNeed = 20
+DEBUG (05:04): timingStepNeed = 20
 PASS
 ------------------------------------------------------------------------------
 Executing test timingNsdrDuration...
-DEBUG (19:49): timingNsdrDuration = 30/20/10
+DEBUG (05:04): timingNsdrDuration = 30/20/10
 PASS
 ------------------------------------------------------------------------------
 Executing test timingHysteresisBoth...
-DEBUG (19:49): timingHysteresisBoth = 909/939
+DEBUG (05:04): timingHysteresisBoth = 909/939
 PASS
 ------------------------------------------------------------------------------
 Executing test timingExpiry...
-DEBUG (19:49): timingExpiry = 10
+DEBUG (05:04): timingExpiry = 10
 PASS
 ------------------------------------------------------------------------------
 Executing test timingChooseCaffeine...
-DEBUG (19:49): timingChooseCaffeine = 1500
+DEBUG (05:04): timingChooseCaffeine = 1500
 PASS
 ------------------------------------------------------------------------------
 Executing test timingChooseScreens...
-DEBUG (19:49): timingChooseScreens = 2200
+DEBUG (05:04): timingChooseScreens = 2200
 PASS
 ------------------------------------------------------------------------------
 Executing test timingChooseCalm...
-DEBUG (19:49): timingChooseCalm = 2230
+DEBUG (05:04): timingChooseCalm = 2230
 PASS
 ------------------------------------------------------------------------------
 Executing test timingAlarmBedAt...
-DEBUG (19:49): timingAlarmBedAt = 1350
+DEBUG (05:04): timingAlarmBedAt = 1350
 PASS
 ------------------------------------------------------------------------------
 Executing test timingScreensAt...
-DEBUG (19:49): timingScreensAt = 1290
+DEBUG (05:04): timingScreensAt = 1290
 PASS
 ------------------------------------------------------------------------------
 Executing test timingNightMatch...
-DEBUG (19:49): timingNightMatch = 10
+DEBUG (05:04): timingNightMatch = 10
 PASS
 ------------------------------------------------------------------------------
 Executing test timingSpread...
-DEBUG (19:49): timingSpread = 60
+DEBUG (05:04): timingSpread = 60
 PASS
 ------------------------------------------------------------------------------
 Executing test timingScoreLow...
-DEBUG (19:49): timingScoreLow = 0
+DEBUG (05:04): timingScoreLow = 0
 PASS
 ------------------------------------------------------------------------------
 Executing test timingScoreHigh...
-DEBUG (19:49): timingScoreHigh = 4
+DEBUG (05:04): timingScoreHigh = 4
 PASS
 ------------------------------------------------------------------------------
 Executing test timingNsdrTable...
-DEBUG (19:49): timingNsdrTable = 30/20/10/0
+DEBUG (05:04): timingNsdrTable = 30/20/10/0
 PASS
 ------------------------------------------------------------------------------
 Executing test timingNsdrCauseMatch...
-DEBUG (19:49): timingNsdrCauseMatch = Reveil de nuit 840
+DEBUG (05:04): timingNsdrCauseMatch = Reveil de nuit 840
 PASS
 
 ==============================================================================

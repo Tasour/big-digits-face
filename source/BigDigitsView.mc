@@ -78,7 +78,7 @@ function refreshSleepScore() as Void {
 class BigDigitsView extends WatchUi.WatchFace {
 
     // Passe a false apres transcription du rapport device.
-    const FACE_SELF_TEST_BUILD = true;
+    const FACE_SELF_TEST_BUILD = false;
 
     const CELL = 90;
     const STROKE = 18;
@@ -151,6 +151,7 @@ class BigDigitsView extends WatchUi.WatchFace {
     private var faceSelfTestDone as Lang.Boolean = false;
     private var faceSelfTestTimer as Timer.Timer or Null = null;
     private var faceSelfTestResults as Lang.Array = [] as Lang.Array;
+    private var faceSelfTestResultsShown as Lang.Boolean = false;
 
     function initialize() {
         WatchFace.initialize();
@@ -839,6 +840,13 @@ class BigDigitsView extends WatchUi.WatchFace {
                 :status => status, :detail => detail} as Lang.Dictionary;
     }
 
+    private function showTestBanner(title as Lang.String, msg as Lang.String,
+                                    ctx as Lang.String, color as Lang.Number) as Void {
+        testMode = true;
+        activeKey = -1;
+        setPopup(9998, title, msg, ctx, color);
+    }
+
     function onSelfTestTick() as Void {
         if (faceSelfTestDone) { return; }
         var r = faceSelfTestCheck(faceSelfTestIndex);
@@ -850,31 +858,45 @@ class BigDigitsView extends WatchUi.WatchFace {
         faceSelfTestIndex++;
         if (faceSelfTestIndex >= previewCount()) {
             faceSelfTestDone = true;
-            if (faceSelfTestTimer != null) { faceSelfTestTimer.stop(); }
+            var failures = 0;
+            for (var i = 0; i < faceSelfTestResults.size(); i++) {
+                var row = faceSelfTestResults[i] as Lang.Dictionary;
+                if (!(row.get(:status) as Lang.String).equals("ok")) { failures++; }
+            }
+            var title = failures == 0 ? "RESULTATS ok" :
+                        "RESULTATS " + failures.format("%d") + " echecs";
+            showTestBanner("APERCU " + title,
+                           failures == 0 ? "Aucun echec" : "Voir rapport",
+                           "auto-test 8/8",
+                           failures == 0 ? Graphics.COLOR_GREEN : Graphics.COLOR_RED);
             System.println("FACESELFTEST done " + faceSelfTestResults.size().format("%d"));
+            faceSelfTestResultsShown = true;
+            if (faceSelfTestTimer != null) { faceSelfTestTimer.stop(); }
+            startResultTimer();
+        } else {
+            var spec = previewSpec(faceSelfTestIndex, previewLabels(), previewConditions());
+            showTestBanner(spec.get(:title) as Lang.String, spec.get(:msg) as Lang.String,
+                           spec.get(:ctx) as Lang.String, spec.get(:color) as Lang.Number);
         }
         WatchUi.requestUpdate();
     }
 
+    function startResultTimer() as Void {
+        if (faceSelfTestTimer != null) { faceSelfTestTimer.stop(); }
+        faceSelfTestTimer = new Timer.Timer();
+        faceSelfTestTimer.start(method(:onResultTimer), 10000, false);
+    }
+
+    function onResultTimer() as Void {
+        faceSelfTestMode = false;
+        faceSelfTestResultsShown = false;
+        testMode = false;
+        activeKey = -1;
+        WatchUi.requestUpdate();
+    }
+
     private function drawFaceSelfTest(dc as Graphics.Dc) as Void {
-        // Le cadran vient deja d'etre dessine : on ne fait que superposer.
-        testMode = true;
-        if (!faceSelfTestDone) {
-            var spec = previewSpec(faceSelfTestIndex, previewLabels(), previewConditions());
-            setPopup(9998, spec.get(:title) as Lang.String, spec.get(:msg) as Lang.String,
-                     spec.get(:ctx) as Lang.String, spec.get(:color) as Lang.Number);
-            drawPopup(dc);
-            return;
-        }
-        var failures = 0;
-        for (var i = 0; i < faceSelfTestResults.size(); i++) {
-            var row = faceSelfTestResults[i] as Lang.Dictionary;
-            if (!(row.get(:status) as Lang.String).equals("ok")) { failures++; }
-        }
-        var title = failures == 0 ? "RESULTATS ok" : "RESULTATS " + failures.format("%d") + " echecs";
-        var detail = failures == 0 ? "Aucun echec" : "Voir rapport";
-        var color = failures == 0 ? Graphics.COLOR_GREEN : Graphics.COLOR_RED;
-        setPopup(9998, "APERCU " + title, detail, "auto-test 8/8", color);
+        if (faceSelfTestResultsShown && !faceSelfTestMode) { return; }
         drawPopup(dc);
     }
 

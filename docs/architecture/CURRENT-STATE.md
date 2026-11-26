@@ -287,3 +287,13 @@ Device `091e:4fb8` sur `/dev/bus/usb/003/026`. Face 41 420 o, compagnon
 À valider sur le device : centrage du bandeau, disparition à 10 s, et
 entry « Tester vibration » du menu Validation (trace `VIBRATION ok` ou
 `VIBRATION indisponible`).
+
+## 21. Retour au fonctionnement normal (2026-11-27)
+
+- `SELF_TEST_BUILD` et `FACE_SELF_TEST_BUILD` repassent à `false` : le menu
+  Validation du compagnon et le cadran normal sont de nouveau accessibles.
+- Correctif du cycle de vie du bandeau de test conservé mais désactivé :
+  `setPopup()` n'est plus appelé à chaque `onUpdate`, et `RESULTATS` s'efface
+  après 10 s au lieu de rester indéfiniment.
+- La vibration se teste depuis **Validation → Tester vibration** dans le
+  compagnon ; le cadran ne peut pas vibrer (limite SDK).
