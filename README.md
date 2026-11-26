@@ -104,6 +104,12 @@ interdit dans une watch face) : le buzz est assuré par l'app compagnon
 `companion/`, voir section dédiée plus bas. Les passages sources sont archivés
 dans `docs/rag-messages.md`.
 
+**Aperçu des rappels sur le cadran** : un appui long sur le bouton milieu
+gauche démarre maintenant l'aperçu des 8 messages, 4 s chacun, avec les
+valeurs réelles du moment et le numéro `n/8`. Le titre est préfixé `APERCU` :
+aucun cycle d'habitude n'est écrit et aucune vibration n'est déclenchée.
+L'ancien panneau de test statique du cadran a été retiré.
+
 **Réglages sur la montre** : `UP/MENU` → *Cadran* → *Personnaliser* ouvre un
 menu `Menu2` avec « Secondes » et « Rappels ». Les valeurs sont persistées dans
 le stockage de la face (`face.showSeconds`, `face.showPopups`, défaut activé).

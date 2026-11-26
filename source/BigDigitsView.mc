@@ -106,6 +106,10 @@ class BigDigitsView extends WatchUi.WatchFace {
     private var activeBits as Lang.Number = 0;
     private var popupTimer as Timer.Timer or Null;
 
+    // Apercu des huit rappels : aucun ecrit dans le Stockage, aucun buzz.
+    private var previewMode as Lang.Boolean = false;
+    private var previewIndex as Lang.Number = 0;
+
     function initialize() {
         WatchFace.initialize();
         gBigDigitsView = self;
@@ -197,13 +201,16 @@ class BigDigitsView extends WatchUi.WatchFace {
         drawFace(dc, hour, minute, seconds, dowStr, dayStr, monStr,
                  kcal.format("%d"), steps.format("%d"), battText, phoneConnected);
 
-        if (settingFlag("face.showPopups") != 0) {
-            updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
-            if (activeKey >= 0) {
-                drawPopup(dc);
-            }
-        } else {
+        if (settingFlag("face.showPopups") == 0) {
             activeKey = -1;
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(130, 252, Graphics.FONT_XTINY, "RAPPELS OFF",
+                        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else if (previewMode) {
+            drawPopup(dc);
+        } else {
+            updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
+            if (activeKey >= 0) { drawPopup(dc); }
         }
     }
 
@@ -213,8 +220,12 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.fillRectangle(SEC_X - 2, SEC_Y - 2, SEC_W * 2 + SEC_GAP + 4, SEC_H + 4);
         if (settingFlag("face.showSeconds") != 0) { drawSeconds(dc, clock.sec); }
+        var nowMs = Time.now().value() * 1000;
+        if (previewMode) {
+            if (nowMs - popupStart >= 4000) { nextPreview(); }
+            return;
+        }
         if (activeKey >= 0) {
-            var nowMs = Time.now().value() * 1000;
             var limit = activeKey == 9999 ? 10000 : POP_MS;
             if (nowMs - popupStart >= limit) {
                 activeKey = -1;
@@ -281,10 +292,13 @@ class BigDigitsView extends WatchUi.WatchFace {
         return true;
     }
 
-    // Bouton haut droit : accuse reception si un rappel est actif, sinon
-    // affiche un panneau de test de 10 s directement sur le cadran.
+    // Bouton MENU : accuse un rappel actif, sinon demarre l'apercu des
+    // huit messages. Le panneau de test statique a ete retire.
     public function onButtonPress() as Lang.Boolean {
-        // Priorite : accuser le rappel, puis la complication, puis test.
+        if (previewMode) {
+            nextPreview();
+            return true;
+        }
         if (activeKey >= 0) {
             markDone();
             dismissPopup();
@@ -293,9 +307,90 @@ class BigDigitsView extends WatchUi.WatchFace {
         if (gComplicationPending && handleComplicationPress()) {
             return true;
         }
-        setPopup(9999, res(Rez.Strings.TestTitle), res(Rez.Strings.TestMsg),
-                 "", Graphics.COLOR_ORANGE);
+        startPreview();
         return true;
+    }
+
+    public function isPreviewMode() as Lang.Boolean {
+        return previewMode;
+    }
+
+    public function hasActivePopup() as Lang.Boolean {
+        return activeKey >= 0;
+    }
+
+    public function startPreview() as Lang.Boolean {
+        previewMode = true;
+        previewIndex = 0;
+        showPreview();
+        WatchUi.requestUpdate();
+        return true;
+    }
+
+    public function nextPreview() as Void {
+        if (!previewMode) { return; }
+        previewIndex++;
+        if (previewIndex >= previewCount()) {
+            previewMode = false;
+            activeKey = -1;
+            WatchUi.requestUpdate();
+            return;
+        }
+        showPreview();
+        WatchUi.requestUpdate();
+    }
+
+    // Valeurs reelles du cadran, ou "notMeasured" : aucune valeur inventee.
+    private function previewConditions() as Lang.Array {
+        var activity = ActivityMonitor.getInfo();
+        var stress = "notMeasured";
+        var steps = "notMeasured";
+        if (activity != null) {
+            if (activity.stressScore != null) {
+                stress = (activity.stressScore as Lang.Number).format("%d");
+            }
+            if (activity.steps != null && activity.stepGoal != null) {
+                steps = (activity.steps as Lang.Number).format("%d") + "/" +
+                        (activity.stepGoal as Lang.Number).format("%d");
+            }
+        }
+        var wake = faceWake();
+        var bed = faceBedTarget();
+        var off = faceScreensOff();
+        var sunset = sunsetMinutes(Gregorian.info(Time.now(), Time.FORMAT_SHORT));
+        var wakeText = wake >= 0 ? timingHHMM(wake) : "notMeasured";
+        var bedText = bed >= 0 ? timingHHMM(bed) : "notMeasured";
+        var offText = off >= 0 ? timingHHMM(off) : "notMeasured";
+        var sunText = sunset >= 0 ? timingHHMM(sunset) : "notMeasured";
+        return [
+            wakeText, "12:30", bedText + " -8h", sunText,
+            "pas " + steps, "stress " + stress,
+            bedText + " / off " + offText, "stress " + stress
+        ] as Lang.Array;
+    }
+
+    private function previewLabels() as Lang.Array {
+        return [
+            [res(Rez.Strings.Pup07Title), res(Rez.Strings.Pup07Msg)],
+            [res(Rez.Strings.Pup1230Title), res(Rez.Strings.Pup1230Msg)],
+            [res(Rez.Strings.Pup15Title), res(Rez.Strings.Pup15Msg)],
+            [res(Rez.Strings.Pup17Title), res(Rez.Strings.Pup17Msg)],
+            [res(Rez.Strings.Pup18Title), res(Rez.Strings.Pup18Msg)],
+            [res(Rez.Strings.Pup21Title), res(Rez.Strings.Pup21Msg20)],
+            [res(Rez.Strings.Pup22Title), res(Rez.Strings.Pup22Msg)],
+            [res(Rez.Strings.Pup2230Title), res(Rez.Strings.Pup2230Msg)]
+        ] as Lang.Array;
+    }
+
+    private function showPreview() as Void {
+        var spec = previewSpec(previewIndex, previewLabels(), previewConditions());
+        activeKey = 9998;
+        activeTitle = spec.get(:title) as Lang.String;
+        activeMsg = spec.get(:msg) as Lang.String;
+        activeCtx = spec.get(:ctx) as Lang.String;
+        activeColor = spec.get(:color) as Lang.Number;
+        activeBits = 0;
+        popupStart = Time.now().value() * 1000;
     }
 
     public function dismissPopup() as Void {

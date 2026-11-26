@@ -20,7 +20,15 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
     // sans en faire la voie principale (ADR-0012 révisé).
     function onTap(clickEvent as WatchUi.ClickEvent) as Lang.Boolean {
         if (gBigDigitsView != null) {
-            gBigDigitsView.dismissPopup();
+            if (gBigDigitsView.isPreviewMode()) {
+                (gBigDigitsView as BigDigitsView).nextPreview();
+                return true;
+            }
+            if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
+                (gBigDigitsView as BigDigitsView).dismissPopup();
+                return true;
+            }
+            (gBigDigitsView as BigDigitsView).startPreview();
             return true;
         }
         return false;
