@@ -197,3 +197,18 @@ Tailles conformes à `RELEASES.md`. `GARMIN/Apps` ne contient aucun autre
 Le rapport de validation sur la montre reste **`notMeasured`** tant que
 l'app compagnon n'a pas été ouverte sur le device et que son rapport n'a pas
 été lu visuellement.
+
+## 13. Score de sommeil et auto-test du cadran (2026-11-26)
+
+- **`ActivityMonitor` n'expose pas le score de sommeil sur `fr955`.** Le SDK
+  fournit le type de complication `42` (`COMPLICATION_TYPE_SLEEP_SCORE`), mais
+  `ComplicationSubscriber` est interdit aux watch-apps : le score est donc lu
+  par le **cadran**, jamais par le compagnon.
+- Règle `ADR-0015` : score `< 70` ajoute 10 au stress effectif du cadran (un
+  cran), plafonné ; score absent = `-1`, aucun effet. 4 tests dédiés.
+- **Auto-test du cadran** : 8 messages, 3 s chacun, traces `FACESELFTEST`,
+  écran `RESULTATS` sans habitude ni buzz. Log simulateur archivé dans
+  `docs/validation/selftest-face-simulateur-2026-11-26T07-10-57-537Z.txt` :
+  8/8, 1 `notMeasured` (coucher solaire non disponible en simulation).
+- La capture visuelle du résultat sur le cadran est `notMeasured` : la fenêtre
+  du simulateur n'a pas pu être recadrée sur le cadran.

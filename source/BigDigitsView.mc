@@ -1,4 +1,5 @@
 using Toybox.ActivityMonitor;
+using Toybox.Complications;
 using Toybox.Application;
 using Toybox.Graphics;
 using Toybox.Lang;
@@ -12,6 +13,8 @@ using Toybox.UserProfile;
 using Toybox.WatchUi;
 
 var gBigDigitsView as BigDigitsView or Null;
+var gSleepScore as Lang.Number = -1;
+var gSleepScoreTime as Lang.Number = 0;
 var gComplicationPending as Lang.Boolean = false;
 
 // Decalage pur de la fenetre glissante : testable sans Storage ni horloge.
@@ -35,6 +38,34 @@ function weekdayLetterFor(dow as Lang.Number, i as Lang.Number) as Lang.String {
     return names[(gi + 6) % 7];
 }
 
+// Le score de sommeil natif est expose au cadran comme complication.
+// Aucune valeur par defaut : absent = -1.
+function refreshSleepScore() as Void {
+    gSleepScore = -1;
+    if (!(Toybox has :Complications)) { return; }
+    var iterator = Complications.getComplications();
+    if (iterator == null) { return; }
+    while (true) {
+        var c = iterator.next();
+        if (c == null) { break; }
+        var id = c.complicationId;
+        if (id == null) { continue; }
+        // La constante n'est pas declaree sur fr955 ; la valeur 42 est celle
+        // de la documentation SDK pour COMPLICATION_TYPE_SLEEP_SCORE.
+        var type = id.getType();
+        if (type != 42) { continue; }
+        var v = c.value;
+        if (v != null && v instanceof Lang.Number) {
+            var score = v as Lang.Number;
+            if (score >= 0 && score <= 100) {
+                gSleepScore = score;
+                gSleepScoreTime = Time.now().value();
+                return;
+            }
+        }
+    }
+}
+
 // Big Digits — cadran "gros chiffres" + rappels Protocoles.
 //
 // Source des messages : base RAG Synthetix / EPUB Huberman (docs/rag-messages.md).
@@ -45,6 +76,9 @@ function weekdayLetterFor(dow as Lang.Number, i as Lang.Number) as Lang.String {
 //   U73     : wrap sur frontiere de mot, jamais de coupure au milieu
 //   U79     : rectangle en surimpression, sans decalage des chiffres de l'heure
 class BigDigitsView extends WatchUi.WatchFace {
+
+    // Passe a false apres transcription du rapport device.
+    const FACE_SELF_TEST_BUILD = true;
 
     const CELL = 90;
     const STROKE = 18;
@@ -110,18 +144,36 @@ class BigDigitsView extends WatchUi.WatchFace {
     private var previewMode as Lang.Boolean = false;
     private var previewIndex as Lang.Number = 0;
 
+    // Auto-test des messages du cadran, sans habitude ni vibration.
+    private var faceSelfTestMode as Lang.Boolean = false;
+    private var faceSelfTestIndex as Lang.Number = 0;
+    private var faceSelfTestDone as Lang.Boolean = false;
+    private var faceSelfTestTimer as Timer.Timer or Null = null;
+    private var faceSelfTestResults as Lang.Array = [] as Lang.Array;
+
     function initialize() {
         WatchFace.initialize();
         gBigDigitsView = self;
     }
 
     function onLayout(dc as Graphics.Dc) as Void {}
-    function onShow() as Void {}
+    function onShow() as Void {
+        if (FACE_SELF_TEST_BUILD && faceSelfTestTimer == null) {
+            faceSelfTestMode = true;
+            faceSelfTestTimer = new Timer.Timer();
+            faceSelfTestTimer.start(method(:onSelfTestTick), 3000, true);
+        }
+    }
     function onHide() as Void {
         if (popupTimer != null) { popupTimer.stop(); }
     }
 
     function onUpdate(dc as Graphics.Dc) as Void {
+        refreshSleepScore();
+        if (faceSelfTestMode) {
+            drawFaceSelfTest(dc);
+            return;
+        }
         var clock = System.getClockTime();
         var settings = System.getDeviceSettings();
         var hour = clock.hour;
@@ -661,10 +713,12 @@ class BigDigitsView extends WatchUi.WatchFace {
             return;
         }
 
-        // NSDR — duree pilotee par le stress et la nuit courte cote face.
-        if (stress > 50 || (profile != null && sleepMinutes() < TIMING_SLEEP_MIN && hour >= 10 && hour <= 16)) {
-            var mins = stress >= 60 ? 30 : (stress >= 40 ? 20 : 10);
+        // NSDR — score de sommeil Garmin < 70 ajoute un pas de stress (ADR-0015).
+        var effStress = effectiveStress(stress, gSleepScore);
+        if (effStress > 50 || (profile != null && sleepMinutes() < TIMING_SLEEP_MIN && hour >= 10 && hour <= 16)) {
+            var mins = effStress >= 60 ? 30 : (effStress >= 40 ? 20 : 10);
             var ctx = "Stress " + stress.format("%d") +
+                      (gSleepScore >= 0 ? " / sommeil " + gSleepScore.format("%d") : "") +
                       (sleepMinutes() < TIMING_SLEEP_MIN ? " / nuit courte" : "");
             setPopup(2100, res(Rez.Strings.Pup21Title),
                      mins.format("%d") + " min de repos", ctx, C_BORDER_NSDR);
@@ -757,6 +811,75 @@ class BigDigitsView extends WatchUi.WatchFace {
                 dc.drawRectangle(x, y, side, side);
             }
             dc.drawText(cx, by, Graphics.FONT_XTINY, letters[i] as Lang.String, justify);
+        }
+    }
+
+    private function faceSelfTestCheck(index as Lang.Number) as Lang.Dictionary {
+        var labels = previewLabels();
+        var conds = previewConditions();
+        var detail = conds[index] as Lang.String;
+        var status = detail.find("notMeasured") != null ? "notMeasured" : "ok";
+        var pair = labels[index] as Lang.Array;
+        return {:index => index, :label => pair[0] as Lang.String,
+                :status => status, :detail => detail} as Lang.Dictionary;
+    }
+
+    function onSelfTestTick() as Void {
+        if (faceSelfTestDone) { return; }
+        var r = faceSelfTestCheck(faceSelfTestIndex);
+        faceSelfTestResults.add(r);
+        System.println("FACESELFTEST " + (faceSelfTestIndex + 1).format("%d") + "/8 " +
+                       (r.get(:label) as Lang.String) + " " +
+                       (r.get(:status) as Lang.String) + " " +
+                       (r.get(:detail) as Lang.String));
+        faceSelfTestIndex++;
+        if (faceSelfTestIndex >= previewCount()) {
+            faceSelfTestDone = true;
+            if (faceSelfTestTimer != null) { faceSelfTestTimer.stop(); }
+            System.println("FACESELFTEST done " + faceSelfTestResults.size().format("%d"));
+        }
+        WatchUi.requestUpdate();
+    }
+
+    private function drawFaceSelfTest(dc as Graphics.Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        if (!faceSelfTestDone) {
+            var r = faceSelfTestCheck(faceSelfTestIndex);
+            dc.drawText(w / 2, 130, Graphics.FONT_SMALL,
+                        "FACE TEST " + (faceSelfTestIndex + 1).format("%d") + "/8", justify);
+            dc.drawText(w / 2, 190, Graphics.FONT_XTINY,
+                        r.get(:label) as Lang.String, justify);
+            dc.setColor((r.get(:status) as Lang.String).equals("ok") ?
+                        Graphics.COLOR_GREEN : Graphics.COLOR_ORANGE,
+                        Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, 230, Graphics.FONT_XTINY,
+                        r.get(:detail) as Lang.String, justify);
+            return;
+        }
+        dc.drawText(w / 2, 90, Graphics.FONT_SMALL, "RESULTATS", justify);
+        var y = 140;
+        var failures = 0;
+        for (var i = 0; i < faceSelfTestResults.size(); i++) {
+            var row = faceSelfTestResults[i] as Lang.Dictionary;
+            var status = row.get(:status) as Lang.String;
+            if (status.equals("ok")) { continue; }
+            failures++;
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, y, Graphics.FONT_XTINY,
+                        (row.get(:label) as Lang.String) + " " + status, justify);
+            y += 26;
+        }
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        if (failures == 0) {
+            dc.drawText(w / 2, h / 2, Graphics.FONT_XTINY, "Aucun echec", justify);
+        } else {
+            dc.drawText(w / 2, h - 100, Graphics.FONT_XTINY,
+                        failures.format("%d") + " echecs", justify);
         }
     }
 

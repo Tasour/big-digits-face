@@ -21,7 +21,9 @@ Matrice vérifiée dans le SDK Connect IQ 9.3.0 installé. `face` = watch face,
 | Coucher solaire | `Weather.getSunset()` (téléphone), NOAA local en repli | NOAA | Weather + NOAA | Soleil |
 | Pas / objectif | `ActivityMonitor.Info.steps`, `stepGoal` | oui | oui | Pas |
 | Calories, étages, minutes actives | `ActivityMonitor.Info` | oui | oui | contexte |
-| Position | `Position.getInfo()` (permissions) | oui (`getInfo`) | oui | NOAA |
+| Score de sommeil | `Complications` type 42 (watch face uniquement) | non (watch-app) | oui | `notMeasured` si aucun fournisseur |
+
+Note : `ComplicationSubscriber` est refusé pour une watch-app ; le score est lu par le cadran et appliqué selon `ADR-0015`. Le compagnon ne peut pas le lire.
 | Envoi téléphone | `Communications.transmit()` — **supporté sur `Forerunner® 955`** | non | oui | instantané 62 octets, 1/jour |
 | Réception téléphone | `Communications.registerForPhoneAppMessages()` | non | oui | corrections 40 octets |
 | Accusé d'envoi | `Communications.ConnectionListener.onComplete/onError()` | non | oui | états `ok` / `attente` / `abandon` |

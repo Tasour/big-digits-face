@@ -1,0 +1,13 @@
+source: simulateur-face
+date: 2026-11-26T07:10:57.537Z
+termine: true
+FACESELFTEST 1/8 Réveil ok 07:00
+FACESELFTEST 2/8 Repas ok 12:30
+FACESELFTEST 3/8 Stimulants ok 01:00 -8h
+FACESELFTEST 4/8 Soleil notMeasured notMeasured
+FACESELFTEST 5/8 Pas ok pas 0/5000
+FACESELFTEST 6/8 NSDR ok stress 30
+FACESELFTEST 7/8 Écrans ok 01:00 / off 00:00
+FACESELFTEST 8/8 Calme ok stress 30
+FACESELFTEST done 8
+echecs: 1

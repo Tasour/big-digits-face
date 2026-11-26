@@ -13,6 +13,7 @@
         </iq:products>
         <iq:permissions>
             <iq:uses-permission id="UserProfile"/>
+            <iq:uses-permission id="ComplicationSubscriber"/>
             <iq:uses-permission id="Positioning"/>
         </iq:permissions>
         <iq:languages>
