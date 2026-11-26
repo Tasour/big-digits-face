@@ -16,10 +16,12 @@ module FeatureProbes {
     const PROBE_BLE = "ble";
     const PROBE_LAYOUT = "layout";
     const PROBE_STORAGE = "storage";
+    const PROBE_VIBRATION = "vibration";
 
     function probeIds() as Lang.Array {
         return [PROBE_CONTRACT, PROBE_SLEEP, PROBE_LIGHT, PROBE_STRESS,
-                PROBE_NSDR, PROBE_BLE, PROBE_LAYOUT, PROBE_STORAGE] as Lang.Array;
+                PROBE_NSDR, PROBE_BLE, PROBE_LAYOUT, PROBE_STORAGE,
+                PROBE_VIBRATION] as Lang.Array;
     }
 
     function num(ctx as Lang.Dictionary, key as Lang.Symbol) as Lang.Number {
@@ -172,6 +174,19 @@ module FeatureProbes {
         ] as Lang.Array);
     }
 
+    function probeVibration(ctx as Lang.Dictionary) as Lang.Dictionary {
+        var supported = flag(ctx, :attentionSupported);
+        var setting = flag(ctx, :vibrateOn);
+        var last = text(ctx, :lastBuzz);
+        var verdict = "notMeasured";
+        if (supported) { verdict = setting ? "ok" : "fail"; }
+        return result(PROBE_VIBRATION, "Vibration", verdict, [
+            "Attention.vibrate=" + (supported ? "oui" : "non"),
+            "reglage=" + (setting ? "actif" : "coupe"),
+            "dernier=" + last
+        ] as Lang.Array);
+    }
+
     function probe(id as Lang.String, ctx as Lang.Dictionary) as Lang.Dictionary {
         if (id.equals(PROBE_CONTRACT)) { return probeContract(ctx); }
         if (id.equals(PROBE_SLEEP)) { return probeSleep(ctx); }
@@ -181,6 +196,7 @@ module FeatureProbes {
         if (id.equals(PROBE_BLE)) { return probeBle(ctx); }
         if (id.equals(PROBE_LAYOUT)) { return probeLayout(ctx); }
         if (id.equals(PROBE_STORAGE)) { return probeStorage(ctx); }
+        if (id.equals(PROBE_VIBRATION)) { return probeVibration(ctx); }
         return result(id, "Inconnu", "notMeasured", ["sonde inconnue : " + id] as Lang.Array);
     }
 

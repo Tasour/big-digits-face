@@ -4,7 +4,7 @@ using Toybox.Test;
 
 (:test)
 function popupTopOn955(logger as Test.Logger) as Lang.Boolean {
-    return popupTop(260) == 33;
+    return popupTop(260) == 71;
 }
 
 (:test)

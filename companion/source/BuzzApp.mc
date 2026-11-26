@@ -710,6 +710,11 @@ function validationContext() as Lang.Dictionary {
     var missingProbe = timingSnapshotField(timingSnapshotBytes({:alarm => -1} as Lang.Dictionary), 0);
     var lightSource = rawSunsetMinutes() != null ? "reel" : "NOAA/repli";
     var keyCount = loadNumber("validation.count");
+    var vibeOn = true;
+    var vsettings = System.getDeviceSettings();
+    if (vsettings has :vibrateOn && vsettings.vibrateOn != null && !vsettings.vibrateOn) {
+        vibeOn = false;
+    }
     return {
         :snapSize => bytes.size(), :corrSize => corr.size(),
         :snapCrc => snapValid, :corrCrc => corrValid,
@@ -731,7 +736,10 @@ function validationContext() as Lang.Dictionary {
         :width => gLayoutWidth, :boxW => gLayoutBoxW,
         :boxH => gLayoutBoxH, :top => gLayoutTop, :inside => gLayoutInside,
         :keyCount => keyCount,
-        :storageOk => true, :logReadable => true
+        :storageOk => true, :logReadable => true,
+        :attentionSupported => Attention has :vibrate,
+        :vibrateOn => vibeOn,
+        :lastBuzz => gLastBuzz
     } as Lang.Dictionary;
 }
 
@@ -1171,7 +1179,7 @@ class PopupView extends Ui.View {
         View.initialize();
         msg = message;
         closeTimer = new Timer.Timer();
-        closeTimer.start(method(:onTimer), 30000, false);
+        closeTimer.start(method(:onTimer), 10000, false);
     }
 
     function onHide() as Void {
@@ -1277,6 +1285,7 @@ class ValidationMenu extends Ui.Menu2 {
         addItem(new Ui.MenuItem("Script contract", "DSL CRC + bornes", "script:contract", null));
         addItem(new Ui.MenuItem("Script sleep", "DSL sommeil", "script:sleep", null));
         addItem(new Ui.MenuItem("Script all", "DSL 8 sondes", "script:all", null));
+        addItem(new Ui.MenuItem("Tester vibration", "buzz 120 ms", "vibrate", null));
         addItem(new Ui.MenuItem("Ancien panneau", "non interactif", "test", null));
         addItem(new Ui.MenuItem("Retour", "quitter le menu", "back", null));
     }
@@ -1290,6 +1299,14 @@ class ValidationMenuDelegate extends Ui.Menu2InputDelegate {
 
     function onSelect(item as Ui.MenuItem) as Void {
         var id = item.getId() as Lang.String;
+        if (id.equals("vibrate")) {
+            doBuzz(9998, false);
+            var report = runValidationOne(FeatureProbes.PROBE_VIBRATION);
+            System.println("VIBRATION " + (report.get(:verdict) as Lang.String));
+            showValidation("VIBRATION " + (report.get(:verdict) as Lang.String),
+                           FeatureProbes.lines(report));
+            return;
+        }
         if (id.equals("test")) {
             Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
             return;

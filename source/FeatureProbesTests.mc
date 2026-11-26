@@ -95,7 +95,7 @@ function probeUnknownIsNotMeasured(logger as Test.Logger) as Lang.Boolean {
 function probeAllCoversEightFeatures(logger as Test.Logger) as Lang.Boolean {
     var reports = FeatureProbes.reportAll({} as Lang.Dictionary);
     logger.debug("probeAll=" + reports.size().toString());
-    return reports.size() == 8;
+    return reports.size() == 9;
 }
 
 (:test)
@@ -105,4 +105,12 @@ function probeLinesCarryReport(logger as Test.Logger) as Lang.Boolean {
     } as Lang.Dictionary);
     var lines = FeatureProbes.lines(r);
     return lines.size() >= 2 && (lines[0] as Lang.String).find("-> ok") != null;
+}
+
+(:test)
+function probeVibrationReportsSetting(logger as Test.Logger) as Lang.Boolean {
+    var r = FeatureProbes.probe(FeatureProbes.PROBE_VIBRATION, {
+        :attentionSupported => true, :vibrateOn => true, :lastBuzz => "9998"
+    } as Lang.Dictionary);
+    return (r.get(:verdict) as Lang.String).equals("ok");
 }

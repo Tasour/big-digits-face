@@ -804,7 +804,10 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.fillRectangle(left + 3, top + 3, boxW - 6, boxH - 6);
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX, top + 24, Graphics.FONT_SMALL, activeTitle, justify);
+        var titleW = dc.getTextWidthInPixels(activeTitle, Graphics.FONT_SMALL);
+        dc.drawText(centerX - (titleW > boxW - 12 ? boxW - 12 : titleW) / 2,
+                    top + 24, Graphics.FONT_SMALL, activeTitle,
+                    Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         var parts = wrapText(activeMsg, 24);
         var lineH = 24;
@@ -812,13 +815,18 @@ class BigDigitsView extends WatchUi.WatchFace {
         for (var i = 0; i < parts.size() && i < 4; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
-            if (part.length() > 24) { part = part.substring(0, 24); }
-            dc.drawText(centerX, lineY, Graphics.FONT_XTINY, part, justify);
+            if (part.length() > 24) { part = (part.substring(0, 24) as Lang.String); }
+            var tw = dc.getTextWidthInPixels(part, Graphics.FONT_XTINY);
+            var tx = centerX - (tw > boxW - 12 ? boxW - 12 : tw) / 2;
+            dc.drawText(tx, lineY, Graphics.FONT_XTINY, part, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
             lineY += lineH;
         }
 
-        var reason = activeCtx.length() > 34 ? activeCtx.substring(0, 34) : activeCtx;
-        dc.drawText(centerX, top + boxH - 10, Graphics.FONT_XTINY, reason, justify);
+        var reason = activeCtx.length() > 34 ? (activeCtx.substring(0, 34) as Lang.String) : activeCtx;
+        var reasonW = dc.getTextWidthInPixels(reason, Graphics.FONT_XTINY);
+        dc.drawText(centerX - (reasonW > boxW - 12 ? boxW - 12 : reasonW) / 2,
+                    top + boxH - 10, Graphics.FONT_XTINY, reason,
+                    Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function faceSelfTestCheck(index as Lang.Number) as Lang.Dictionary {

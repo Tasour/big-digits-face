@@ -264,3 +264,17 @@ device avant de repasser les drapeaux à `false`.
 Device `091e:4fb8`, `/dev/bus/usb/003/024`. Face 40 956 o, compagnon 41 724 o,
 chrono 10 108 o — conformes à `RELEASES.md` après remontage. Les drapeaux
 self-test restent actifs le temps de la vérification sur le device.
+
+## 19. Bandeau centré, 10 s et sonde vibration
+
+- ADR-0017 : durée ramenée à **10 s** dans les deux moteurs et le popup
+  compagnon.
+- Bandeau centré verticalement et horizontalement ; chaque ligne est centrée
+  avec `getTextWidthInPixels()`. Capture relue :
+  `docs/screens/bandeau-centre-watch.png`.
+- Accusé par bouton sur le cadran : `notMeasured`, SDK limité.
+- 9e sonde `VIBRATION` : support `Attention.vibrate`, réglage `vibrateOn`,
+  dernier buzz. Entrée « Tester vibration » dans le menu Validation, trace
+  `VIBRATION ok/indisponible` et `VALIDATION vibration ...`.
+- Le matériel vibre sur les activités : le test dédié doit trancher sur le
+  chemin applicatif.

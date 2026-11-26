@@ -34,7 +34,7 @@ function previewCount() as Lang.Number {
 
 // Zone du bandeau : au-dessus de la ligne des secondes (ADR-0016).
 function popupTop(height as Lang.Number) as Lang.Number {
-    return (height * 13) / 100;
+    return (height - popupHeight(height)) / 2;
 }
 
 function popupHeight(height as Lang.Number) as Lang.Number {
