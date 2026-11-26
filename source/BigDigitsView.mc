@@ -141,6 +141,7 @@ class BigDigitsView extends WatchUi.WatchFace {
     private var popupTimer as Timer.Timer or Null;
 
     // Apercu des huit rappels : aucun ecrit dans le Stockage, aucun buzz.
+    private var testMode as Lang.Boolean = false;
     private var previewMode as Lang.Boolean = false;
     private var previewIndex as Lang.Number = 0;
 
@@ -170,6 +171,7 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     function onUpdate(dc as Graphics.Dc) as Void {
         refreshSleepScore();
+        resetDailyNotifState();
         if (faceSelfTestMode) {
             drawFaceSelfTest(dc);
             return;
@@ -384,12 +386,25 @@ class BigDigitsView extends WatchUi.WatchFace {
         previewIndex++;
         if (previewIndex >= previewCount()) {
             previewMode = false;
+            testMode = false;
             activeKey = -1;
             WatchUi.requestUpdate();
             return;
         }
         showPreview();
         WatchUi.requestUpdate();
+    }
+
+    // Les creneaux calcules la veille ne doivent pas decaler ceux d'aujourd'hui.
+    private function resetDailyNotifState() as Void {
+        if (!shouldResetNotifs(dayIndex(), load("notif.next.day"))) { return; }
+        var slots = [700, 1230, 1500, 1730, 1830, 2100, 2200] as Lang.Array;
+        for (var i = 0; i < slots.size(); i++) {
+            store("notif.next." + (slots[i] as Lang.Number).format("%d"), 0);
+        }
+        store("notif.next.day", dayIndex());
+        store("notif.count", 0);
+        store("notif.count.day", dayIndex());
     }
 
     // Valeurs reelles du cadran, ou "notMeasured" : aucune valeur inventee.
@@ -436,13 +451,9 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     private function showPreview() as Void {
         var spec = previewSpec(previewIndex, previewLabels(), previewConditions());
-        activeKey = 9998;
-        activeTitle = spec.get(:title) as Lang.String;
-        activeMsg = spec.get(:msg) as Lang.String;
-        activeCtx = spec.get(:ctx) as Lang.String;
-        activeColor = spec.get(:color) as Lang.Number;
-        activeBits = 0;
-        popupStart = Time.now().value() * 1000;
+        testMode = true;
+        setPopup(9998, spec.get(:title) as Lang.String, spec.get(:msg) as Lang.String,
+                 spec.get(:ctx) as Lang.String, spec.get(:color) as Lang.Number);
     }
 
     public function dismissPopup() as Void {
@@ -452,9 +463,10 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     private function setPopup(key as Lang.Number, title as Lang.String, msg as Lang.String, ctx as Lang.String, color as Lang.Number) as Void {
         if (key == activeKey) { return; }
+        var real = !testMode && key != 9998 && key != 9999;
         var seenKey = "face.notif." + key.format("%d");
-        if (key != 9999 && load(seenKey) == dayIndex()) { return; }
-        if (key != 9999) {
+        if (real && load(seenKey) == dayIndex()) { return; }
+        if (real) {
             store(seenKey, dayIndex());
             store("notif.base." + key.format("%d"), nowDayMinutes());
         }
@@ -463,9 +475,16 @@ class BigDigitsView extends WatchUi.WatchFace {
         activeMsg = msg;
         activeCtx = ctx;
         activeColor = color;
-        activeBits = habitBits(key);
+        activeBits = real ? habitBits(key) : 0;
         popupStart = Time.now().value() * 1000;
         lastVibKey = key;
+        if (real) {
+            var count = load("notif.count.day") == dayIndex() ? load("notif.count") + 1 : 1;
+            store("notif.count.day", dayIndex());
+            store("notif.count", count);
+            store("notif.last", nowDayMinutes());
+            Application.Storage.setValue("notif.last.reason", title + " | " + ctx);
+        }
         // Pas de Timer : la watch face est redessinee par le systeme (onUpdate).
         // La fenetre de 25 s est verifiee dans onPartialUpdate.
     }
@@ -787,7 +806,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         var leftMs = TIMING_POPUP_MS - (Time.now().value() * 1000 - popupStart);
         var leftH = leftMs / 3600000 + 1;
         if (leftMs <= 0) { leftH = 0; }
-        dc.drawText(centerX, POP_Y + 86, Graphics.FONT_SYSTEM_XTINY,
+        dc.drawText(centerX, POP_Y + 94, Graphics.FONT_SYSTEM_XTINY,
                     reason + " · " + leftH.format("%d") + "h", justify);
 
         // Barre de 7 carres avec la lettre du jour concerne au centre.
@@ -795,7 +814,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         var gap = 0;
         var total = 7 * side + 6 * gap;
         var bx = centerX - total / 2 + side / 2;
-        var by = POP_Y + 108;
+        var by = POP_Y + 118;
         var letters = weekdayLetters();
         for (var i = 0; i < 7; i++) {
             var cx = bx + i * (side + gap);
@@ -842,45 +861,24 @@ class BigDigitsView extends WatchUi.WatchFace {
     }
 
     private function drawFaceSelfTest(dc as Graphics.Dc) as Void {
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.clear();
-        var w = dc.getWidth();
-        var h = dc.getHeight();
-        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        testMode = true;
         if (!faceSelfTestDone) {
-            var r = faceSelfTestCheck(faceSelfTestIndex);
-            dc.drawText(w / 2, 130, Graphics.FONT_SMALL,
-                        "FACE TEST " + (faceSelfTestIndex + 1).format("%d") + "/8", justify);
-            dc.drawText(w / 2, 190, Graphics.FONT_XTINY,
-                        r.get(:label) as Lang.String, justify);
-            dc.setColor((r.get(:status) as Lang.String).equals("ok") ?
-                        Graphics.COLOR_GREEN : Graphics.COLOR_ORANGE,
-                        Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, 230, Graphics.FONT_XTINY,
-                        r.get(:detail) as Lang.String, justify);
+            var spec = previewSpec(faceSelfTestIndex, previewLabels(), previewConditions());
+            setPopup(9998, spec.get(:title) as Lang.String, spec.get(:msg) as Lang.String,
+                     spec.get(:ctx) as Lang.String, spec.get(:color) as Lang.Number);
+            drawPopup(dc);
             return;
         }
-        dc.drawText(w / 2, 90, Graphics.FONT_SMALL, "RESULTATS", justify);
-        var y = 140;
         var failures = 0;
         for (var i = 0; i < faceSelfTestResults.size(); i++) {
             var row = faceSelfTestResults[i] as Lang.Dictionary;
-            var status = row.get(:status) as Lang.String;
-            if (status.equals("ok")) { continue; }
-            failures++;
-            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(w / 2, y, Graphics.FONT_XTINY,
-                        (row.get(:label) as Lang.String) + " " + status, justify);
-            y += 26;
+            if (!(row.get(:status) as Lang.String).equals("ok")) { failures++; }
         }
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        if (failures == 0) {
-            dc.drawText(w / 2, h / 2, Graphics.FONT_XTINY, "Aucun echec", justify);
-        } else {
-            dc.drawText(w / 2, h - 100, Graphics.FONT_XTINY,
-                        failures.format("%d") + " echecs", justify);
-        }
+        var title = failures == 0 ? "RESULTATS ok" : "RESULTATS " + failures.format("%d") + " echecs";
+        var detail = failures == 0 ? "Aucun echec" : "Voir rapport";
+        var color = failures == 0 ? Graphics.COLOR_GREEN : Graphics.COLOR_RED;
+        setPopup(9998, "APERCU " + title, detail, "auto-test 8/8", color);
+        drawPopup(dc);
     }
 
     // Wrap sur frontiere de mot. Un mot plus long que maxLen est coupe avec "…".
