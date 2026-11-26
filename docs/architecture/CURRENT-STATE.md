@@ -236,3 +236,13 @@ des écrans `RESULTATS` et redéploiement de la version normale.
   demandé à l'expiration.
 - Capture relue : `docs/screens/bandeau-sans-carres-watch.png` — titre, message
   sur deux lignes et contexte, sans chevauchement ni carrés.
+
+## 16. Déploiement du bandeau 30 s sans carrés
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/021`, trois binaires déployés puis
+relus après remontage : face 40 828 o, compagnon 41 724 o, chrono 10 108 o —
+conformes à `RELEASES.md`. Aucun autre `.prg` dans `GARMIN/Apps`.
+
+Les drapeaux self-test restent actifs sur la face et le compagnon : les deux
+auto-tests démarrent à l'ouverture avec le nouveau bandeau. À valider sur le
+device avant de repasser les drapeaux à `false`.
