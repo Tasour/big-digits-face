@@ -1138,10 +1138,10 @@ class TestPanelView extends Ui.View {
     function onUpdate(dc as Graphics.Dc) as Void {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
-        var x = 20;
-        var y = 61;
         var w = 220;
         var h = 138;
+        var x = (dc.getWidth() - w) / 2;
+        var y = (dc.getHeight() - h) / 2;
         var border = 3;
         dc.setColor(Graphics.COLOR_ORANGE, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(x, y, w, h);
@@ -1152,7 +1152,8 @@ class TestPanelView extends Ui.View {
         var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, y + 20, Graphics.FONT_SMALL, "TEST", justify);
-        dc.drawText(cx, y + 48, Graphics.FONT_SYSTEM_XTINY, "Panneau de test", justify);
+        dc.drawText(cx, y + 48, Graphics.FONT_XTINY, "v26.11.26 non interactif", justify);
+        dc.drawText(cx, y + 66, Graphics.FONT_XTINY, "MENU long: Validation", justify);
         drawSquares(dc, cx, y + 108, 0x05, Graphics.COLOR_ORANGE);
     }
 }
@@ -1258,7 +1259,7 @@ class TestPanelDelegate extends Ui.BehaviorDelegate {
 (:typecheck(disableBackgroundCheck))
 class ValidationMenu extends Ui.Menu2 {
     function initialize() {
-        Menu2.initialize({:title => "Validation"});
+        Menu2.initialize({:title => "Validation v26.11.26"});
         addItem(new Ui.MenuItem("Tout lancer", "8 sondes", "all", null));
         var ids = FeatureProbes.probeIds();
         var labels = ["Contrat binaire", "Reveil / sommeil", "Lumiere",
@@ -1272,7 +1273,8 @@ class ValidationMenu extends Ui.Menu2 {
         addItem(new Ui.MenuItem("Script contract", "DSL CRC + bornes", "script:contract", null));
         addItem(new Ui.MenuItem("Script sleep", "DSL sommeil", "script:sleep", null));
         addItem(new Ui.MenuItem("Script all", "DSL 8 sondes", "script:all", null));
-        addItem(new Ui.MenuItem("Panneau de test", "buzz / BLE", "test", null));
+        addItem(new Ui.MenuItem("Ancien panneau", "non interactif", "test", null));
+        addItem(new Ui.MenuItem("Retour", "quitter le menu", "back", null));
     }
 }
 
@@ -1286,6 +1288,10 @@ class ValidationMenuDelegate extends Ui.Menu2InputDelegate {
         var id = item.getId() as Lang.String;
         if (id.equals("test")) {
             Ui.pushView(new TestPanelView(), new TestPanelDelegate(), Ui.SLIDE_IMMEDIATE);
+            return;
+        }
+        if (id.equals("back")) {
+            Ui.popView(Ui.SLIDE_IMMEDIATE);
             return;
         }
         if (id.equals("all")) {
