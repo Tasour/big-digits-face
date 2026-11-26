@@ -31,3 +31,16 @@ function previewSpec(index as Lang.Number, labels as Lang.Array,
 function previewCount() as Lang.Number {
     return 8;
 }
+
+// Zone du bandeau : au-dessus de la ligne des secondes (ADR-0016).
+function popupTop(height as Lang.Number) as Lang.Number {
+    return (height * 13) / 100;
+}
+
+function popupHeight(height as Lang.Number) as Lang.Number {
+    return (height * 45) / 100;
+}
+
+function popupCoversSeconds(height as Lang.Number, secondsY as Lang.Number) as Lang.Boolean {
+    return popupTop(height) + popupHeight(height) > secondsY;
+}

@@ -172,10 +172,6 @@ class BigDigitsView extends WatchUi.WatchFace {
     function onUpdate(dc as Graphics.Dc) as Void {
         refreshSleepScore();
         resetDailyNotifState();
-        if (faceSelfTestMode) {
-            drawFaceSelfTest(dc);
-            return;
-        }
         var clock = System.getClockTime();
         var settings = System.getDeviceSettings();
         var hour = clock.hour;
@@ -262,10 +258,11 @@ class BigDigitsView extends WatchUi.WatchFace {
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         } else if (previewMode) {
             drawPopup(dc);
-        } else {
+        } else if (!faceSelfTestMode) {
             updatePopup(clock.hour, clock.min, dowIdx, steps, stepGoal, stress, settings, info);
             if (activeKey >= 0) { drawPopup(dc); }
         }
+        if (faceSelfTestMode) { drawFaceSelfTest(dc); }
     }
 
     // Les secondes sont le seul element qui change chaque seconde.
@@ -461,6 +458,10 @@ class BigDigitsView extends WatchUi.WatchFace {
     // N'importe quel bouton masque le bandeau ; START seul coche l'habitude.
     public function dismissWithButton(key as Lang.Number) as Lang.Boolean {
         if (activeKey < 0) { return false; }
+        if (key == WatchUi.KEY_ESC) {
+            dismissPopup();
+            return true;
+        }
         if (!testMode && !previewMode && key == WatchUi.KEY_ENTER) { markDone(); }
         dismissPopup();
         return true;
@@ -791,9 +792,9 @@ class BigDigitsView extends WatchUi.WatchFace {
         var w = dc.getWidth();
         var h = dc.getHeight();
         var boxW = (w * 80) / 100;
-        var boxH = (h * 50) / 100;
+        var boxH = popupHeight(h);
         var left = (w - boxW) / 2;
-        var top = (h - boxH) / 2;
+        var top = popupTop(h);
         var centerX = w / 2;
         var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
@@ -803,11 +804,11 @@ class BigDigitsView extends WatchUi.WatchFace {
         dc.fillRectangle(left + 3, top + 3, boxW - 6, boxH - 6);
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX, top + 26, Graphics.FONT_SMALL, activeTitle, justify);
+        dc.drawText(centerX, top + 24, Graphics.FONT_SMALL, activeTitle, justify);
 
         var parts = wrapText(activeMsg, 24);
-        var lineH = 28;
-        var lineY = top + 66;
+        var lineH = 24;
+        var lineY = top + 50;
         for (var i = 0; i < parts.size() && i < 4; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
@@ -817,7 +818,7 @@ class BigDigitsView extends WatchUi.WatchFace {
         }
 
         var reason = activeCtx.length() > 34 ? activeCtx.substring(0, 34) : activeCtx;
-        dc.drawText(centerX, top + boxH - 12, Graphics.FONT_XTINY, reason, justify);
+        dc.drawText(centerX, top + boxH - 10, Graphics.FONT_XTINY, reason, justify);
     }
 
     private function faceSelfTestCheck(index as Lang.Number) as Lang.Dictionary {
@@ -848,6 +849,7 @@ class BigDigitsView extends WatchUi.WatchFace {
     }
 
     private function drawFaceSelfTest(dc as Graphics.Dc) as Void {
+        // Le cadran vient deja d'etre dessine : on ne fait que superposer.
         testMode = true;
         if (!faceSelfTestDone) {
             var spec = previewSpec(faceSelfTestIndex, previewLabels(), previewConditions());

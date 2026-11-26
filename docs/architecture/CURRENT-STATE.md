@@ -246,3 +246,15 @@ conformes à `RELEASES.md`. Aucun autre `.prg` dans `GARMIN/Apps`.
 Les drapeaux self-test restent actifs sur la face et le compagnon : les deux
 auto-tests démarrent à l'ouverture avec le nouveau bandeau. À valider sur le
 device avant de repasser les drapeaux à `false`.
+
+## 17. Bandeau au-dessus du cadran et bouton BACK
+
+- Le bandeau est remonté : haut à 13 % et hauteur à 45 % de l'écran logique
+  (260 px sur fr955), ce qui laisse le bas du cadran visible pendant l'affichage.
+- `drawFaceSelfTest()` ne fait plus `dc.clear()` : le cadran est dessiné d'abord,
+  le bandeau est une surimpression. Les secondes continuent en mise à jour
+  partielle.
+- `KEY_ESC` (BACK) masque immédiatement le bandeau sans cocher d'habitude ;
+  START/ENTER reste le seul bouton qui coche.
+- 4 tests de la zone du bandeau, 95 tests verts. Capture relue :
+  `docs/screens/bandeau-fond-cadran-watch.png`.
