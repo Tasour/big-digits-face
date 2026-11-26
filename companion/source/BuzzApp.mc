@@ -19,6 +19,10 @@ using Toybox.Communications;
 using Toybox.Weather;
 using Toybox.WatchUi as Ui;
 
+// Passe a true pour la livraison self-test, puis a false pour revenir au
+// compagnon normal apres transcription du rapport.
+const SELF_TEST_BUILD = true;
+
 (:background)
 const DAY_SECONDS = 86400;
 (:background)
@@ -1476,6 +1480,165 @@ class BuzzDelegate extends System.ServiceDelegate {
     }
 }
 
+// --- Auto-test des huit rappels -----------------------------------------
+// Lance automatiquement la sequence des huit messages a l'ouverture, sans
+// aucun appui bouton. Chaque resultat est trace pour le MCP et affiche a
+// l'ecran ; aucun Tick d'habitude n'est ecrit.
+(:typecheck(disableBackgroundCheck))
+function selfTestCheck(index as Lang.Number) as Lang.Dictionary {
+    var info = ActivityMonitor.getInfo();
+    var wake = wakeMinute();
+    var bed = bedTarget();
+    var off = screensOffMinute();
+    var set = sunsetMinutes();
+    var rise = sunriseMinutes();
+    var steps = -1;
+    var goal = -1;
+    var stress = -1;
+    if (info != null) {
+        if (info.steps != null) { steps = info.steps as Lang.Number; }
+        if (info.stepGoal != null) { goal = info.stepGoal as Lang.Number; }
+        if (info.stressScore != null) { stress = info.stressScore as Lang.Number; }
+    }
+    var labels = ["Lever soleil", "Repas", "Stimulants", "Coucher soleil",
+                  "Pas", "NSDR", "Ecrans", "Calme"] as Lang.Array;
+    var label = labels[index] as Lang.String;
+    var status = "notMeasured";
+    var detail = "donnee absente";
+
+    if (index == 0) {
+        if (rise >= 0) { status = "ok"; detail = "lever " + timingHHMM(rise); }
+        else if (wake >= 0) { status = "ok"; detail = "reveil " + timingHHMM(wake) + " (repli)"; }
+    } else if (index == 1) {
+        status = "ok"; detail = "creneau fixe 12:30";
+    } else if (index == 2) {
+        if (bed >= 0) { status = "ok"; detail = "coucher " + timingHHMM(bed); }
+    } else if (index == 3) {
+        if (set >= 0) { status = "ok"; detail = "coucher " + timingHHMM(set); }
+    } else if (index == 4) {
+        if (steps >= 0 && goal > 0) {
+            status = "ok";
+            detail = "pas " + steps.format("%d") + "/" + goal.format("%d");
+        }
+    } else if (index == 5) {
+        if (stress >= 0 || sleepDebt() >= 0) {
+            status = "ok"; detail = "stress " + stress.format("%d");
+        }
+    } else if (index == 6) {
+        if (off >= 0) { status = "ok"; detail = "off " + timingHHMM(off); }
+    } else if (index == 7) {
+        if (stress >= 0) { status = "ok"; detail = "stress " + stress.format("%d"); }
+    }
+
+    return {:index => index, :label => label, :status => status,
+            :detail => detail} as Lang.Dictionary;
+}
+
+(:typecheck(disableBackgroundCheck))
+class SelfTestView extends Ui.View {
+    var timer as Timer.Timer or Null;
+    var index as Lang.Number;
+    var done as Lang.Boolean;
+    var results as Lang.Array;
+
+    function initialize() {
+        View.initialize();
+        timer = new Timer.Timer();
+        index = 0;
+        done = false;
+        results = [] as Lang.Array;
+    }
+
+    function onShow() as Void {
+        if (!done) {
+            timer.start(method(:onTick), 3000, true);
+        }
+    }
+
+    function onHide() as Void {
+        if (timer != null) { timer.stop(); }
+    }
+
+    function onTick() as Void {
+        if (done) { return; }
+        var r = selfTestCheck(index);
+        results.add(r);
+        System.println("SELFTEST " + (index + 1).format("%d") + "/8 " +
+                       (r.get(:label) as Lang.String) + " " +
+                       (r.get(:status) as Lang.String) + " " +
+                       (r.get(:detail) as Lang.String));
+        var joined = "";
+        for (var i = 0; i < results.size(); i++) {
+            var row = results[i] as Lang.Dictionary;
+            if (i > 0) { joined += "\n"; }
+            joined += (row.get(:label) as Lang.String) + ":" + (row.get(:status) as Lang.String);
+        }
+        App.Storage.setValue("selftest.results", joined);
+        index++;
+        if (index >= 8) {
+            done = true;
+            if (timer != null) { timer.stop(); }
+            System.println("SELFTEST done " + results.size().format("%d"));
+        }
+        Ui.requestUpdate();
+    }
+
+    function onUpdate(dc as Graphics.Dc) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        if (!done) {
+            var r = selfTestCheck(index);
+            dc.drawText(w / 2, h / 2 - 40, Graphics.FONT_SMALL,
+                        "SELFTEST " + (index + 1).format("%d") + "/8", justify);
+            dc.drawText(w / 2, h / 2, Graphics.FONT_XTINY,
+                        r.get(:label) as Lang.String, justify);
+            dc.setColor((r.get(:status) as Lang.String).equals("ok") ?
+                        Graphics.COLOR_GREEN : Graphics.COLOR_ORANGE,
+                        Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, h / 2 + 30, Graphics.FONT_XTINY,
+                        r.get(:detail) as Lang.String, justify);
+            return;
+        }
+
+        dc.drawText(w / 2, 90, Graphics.FONT_SMALL, "RESULTATS", justify);
+        var y = 140;
+        var failures = 0;
+        for (var i = 0; i < results.size(); i++) {
+            var row = results[i] as Lang.Dictionary;
+            var status = row.get(:status) as Lang.String;
+            if (status.equals("ok")) { continue; }
+            failures++;
+            dc.setColor(Graphics.COLOR_RED, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, y, Graphics.FONT_XTINY,
+                        (row.get(:label) as Lang.String) + " " + status, justify);
+            y += 26;
+        }
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        if (failures == 0) {
+            dc.drawText(w / 2, h / 2, Graphics.FONT_XTINY, "Aucun echec", justify);
+        } else {
+            dc.drawText(w / 2, h - 100, Graphics.FONT_XTINY,
+                        failures.format("%d") + " echecs", justify);
+        }
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+class SelfTestDelegate extends Ui.BehaviorDelegate {
+    function initialize() {
+        BehaviorDelegate.initialize();
+    }
+
+    function onBack() as Lang.Boolean {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+        return true;
+    }
+}
+
 class BuzzApp extends App.AppBase {
     function initialize() {
         AppBase.initialize();
@@ -1522,6 +1685,9 @@ class BuzzApp extends App.AppBase {
 
     (:typecheck(disableBackgroundCheck))
     function getInitialView() {
+        if (SELF_TEST_BUILD) {
+            return [new SelfTestView(), new SelfTestDelegate()];
+        }
         // Seul point d'entree garanti au premier plan : mesures et lien
         // telephone n'ont pas le droit de tourner dans le processus de fond.
         refreshMetrics();

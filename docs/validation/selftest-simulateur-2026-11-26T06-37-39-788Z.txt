@@ -1,0 +1,13 @@
+source: simulateur
+date: 2026-11-26T06:37:39.789Z
+termine: true
+SELFTEST 1/8 Lever soleil ok reveil 07:00 (repli)
+SELFTEST 2/8 Repas ok creneau fixe 12:30
+SELFTEST 3/8 Stimulants ok coucher 00:00
+SELFTEST 4/8 Coucher soleil ok coucher 17:30
+SELFTEST 5/8 Pas ok pas 0/5000
+SELFTEST 6/8 NSDR ok stress 30
+SELFTEST 7/8 Ecrans ok off 23:00
+SELFTEST 8/8 Calme ok stress 30
+SELFTEST done 8
+echecs: 0
