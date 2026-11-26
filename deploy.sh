@@ -34,7 +34,15 @@ for f in bin/bigdigits-fr955.prg companion/bin/bigdigits-buzz-fr955.prg chrono/b
     # charge) : on retire l'ancien fichier apres sauvegarde.
     gio remove "$WATCH/$name"
   fi
-  gio copy "$f" "$WATCH/$name"
+  # MTP peut refuser une copie juste apres le montage : on remonte une fois
+  # et on reessaie avant de declarer l'echec.
+  if ! gio copy "$f" "$WATCH/$name"; then
+    echo "Reconnexion MTP pour $name"
+    gio mount -u mtp://$(basename "$WATCH" 2>/dev/null || true)/ >/dev/null 2>&1 || true
+    gio mount -d "$USB_DEV" >/dev/null 2>&1 || true
+    if [ -f "$WATCH/$name" ]; then gio remove "$WATCH/$name" || true; fi
+    gio copy "$f" "$WATCH/$name"
+  fi
   local_size="$(stat -c%s "$f")"
   remote_size="$(gio info "$WATCH/$name" 2>/dev/null | grep -oP 'standard::size: \K[0-9]+' || true)"
   if [ "$local_size" != "$remote_size" ]; then
