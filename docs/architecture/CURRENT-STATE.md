@@ -278,3 +278,12 @@ self-test restent actifs le temps de la vérification sur le device.
   `VIBRATION ok/indisponible` et `VALIDATION vibration ...`.
 - Le matériel vibre sur les activités : le test dédié doit trancher sur le
   chemin applicatif.
+
+## 20. Déploiement bandeau 10 s + vibration
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/026`. Face 41 420 o, compagnon
+42 364 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+
+À valider sur le device : centrage du bandeau, disparition à 10 s, et
+entry « Tester vibration » du menu Validation (trace `VIBRATION ok` ou
+`VIBRATION indisponible`).
