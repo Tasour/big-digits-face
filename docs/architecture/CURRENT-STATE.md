@@ -258,3 +258,9 @@ device avant de repasser les drapeaux à `false`.
   START/ENTER reste le seul bouton qui coche.
 - 4 tests de la zone du bandeau, 95 tests verts. Capture relue :
   `docs/screens/bandeau-fond-cadran-watch.png`.
+
+## 18. Déploiement du bandeau surimposé
+
+Device `091e:4fb8`, `/dev/bus/usb/003/024`. Face 40 956 o, compagnon 41 724 o,
+chrono 10 108 o — conformes à `RELEASES.md` après remontage. Les drapeaux
+self-test restent actifs le temps de la vérification sur le device.
