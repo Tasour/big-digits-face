@@ -297,3 +297,10 @@ entry « Tester vibration » du menu Validation (trace `VIBRATION ok` ou
   après 10 s au lieu de rester indéfiniment.
 - La vibration se teste depuis **Validation → Tester vibration** dans le
   compagnon ; le cadran ne peut pas vibrer (limite SDK).
+
+## 22. Déploiement version normale (2026-11-27)
+
+Device `091e:4fb8`, `/dev/bus/usb/003/005`. Face 41 532 o, compagnon 42 540 o,
+chrono 10 108 o — conformes à `RELEASES.md` après remontage. Les auto-tests ne
+se lancent plus : le cadran affiche l'heure en continu et le compagnon ouvre le
+diagnostic puis le menu Validation par appui long MENU.
