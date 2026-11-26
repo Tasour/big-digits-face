@@ -9,8 +9,17 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
     }
 
     function onPress(clickEvent as WatchUi.ClickEvent) as Lang.Boolean {
-        if (gBigDigitsView != null) {
-            return gBigDigitsView.onButtonPress();
+        if (gBigDigitsView == null) { return false; }
+        if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
+            return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ENTER);
+        }
+        return (gBigDigitsView as BigDigitsView).onButtonPress();
+    }
+
+    function onKey(keyEvent as WatchUi.KeyEvent) as Lang.Boolean {
+        if (gBigDigitsView == null) { return false; }
+        if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
+            return (gBigDigitsView as BigDigitsView).dismissWithButton(keyEvent.getKey());
         }
         return false;
     }
@@ -25,8 +34,7 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
                 return true;
             }
             if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
-                (gBigDigitsView as BigDigitsView).dismissPopup();
-                return true;
+                return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ENTER);
             }
             (gBigDigitsView as BigDigitsView).startPreview();
             return true;

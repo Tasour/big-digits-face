@@ -1171,7 +1171,7 @@ class PopupView extends Ui.View {
         View.initialize();
         msg = message;
         closeTimer = new Timer.Timer();
-        closeTimer.start(method(:onTimer), 25000, false);
+        closeTimer.start(method(:onTimer), 30000, false);
     }
 
     function onHide() as Void {

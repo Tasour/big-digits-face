@@ -286,6 +286,8 @@ class BigDigitsView extends WatchUi.WatchFace {
                 dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
                 dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
                 WatchUi.requestUpdate();
+            } else {
+                drawPopup(dc);
             }
         }
     }
@@ -456,8 +458,17 @@ class BigDigitsView extends WatchUi.WatchFace {
                  spec.get(:ctx) as Lang.String, spec.get(:color) as Lang.Number);
     }
 
+    // N'importe quel bouton masque le bandeau ; START seul coche l'habitude.
+    public function dismissWithButton(key as Lang.Number) as Lang.Boolean {
+        if (activeKey < 0) { return false; }
+        if (!testMode && !previewMode && key == WatchUi.KEY_ENTER) { markDone(); }
+        dismissPopup();
+        return true;
+    }
+
     public function dismissPopup() as Void {
         activeKey = -1;
+        testMode = false;
         WatchUi.requestUpdate();
     }
 
@@ -776,61 +787,37 @@ class BigDigitsView extends WatchUi.WatchFace {
     }
 
     private function drawPopup(dc as Graphics.Dc) as Void {
-        // U79 : surimpression, le cadran reste a sa place (aucun decalage).
-        // Fond noir : la couleur de categorie est portee par la bordure (U19/U41).
-        var border = 3;
-        dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(POP_X + border, POP_Y + border,
-                         POP_W - 2 * border, POP_H - 2 * border);
-
-        // Centrage horizontal et vertical de chaque bloc de texte.
-        var centerX = POP_X + POP_W / 2;
+        // ADR-0016 : plus de carres de semaine ; tout l'espace sert au message.
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var boxW = (w * 80) / 100;
+        var boxH = (h * 50) / 100;
+        var left = (w - boxW) / 2;
+        var top = (h - boxH) / 2;
+        var centerX = w / 2;
         var justify = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX, POP_Y + 20, Graphics.FONT_SMALL, activeTitle, justify);
 
-        var parts = wrapText(activeMsg, 30);
-        var lineY = POP_Y + 48;
-        for (var i = 0; i < parts.size() && i < 2; i++) {
+        dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(left, top, boxW, boxH);
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(left + 3, top + 3, boxW - 6, boxH - 6);
+
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(centerX, top + 26, Graphics.FONT_SMALL, activeTitle, justify);
+
+        var parts = wrapText(activeMsg, 24);
+        var lineH = 28;
+        var lineY = top + 66;
+        for (var i = 0; i < parts.size() && i < 4; i++) {
             var part = parts[i] as Lang.String;
             if (part == null) { part = "?" as Lang.String; }
-            if (part.length() > 30) { part = part.substring(0, 30); }
-            dc.drawText(centerX, lineY, Graphics.FONT_SYSTEM_XTINY, part, justify);
-            lineY += 20;
+            if (part.length() > 24) { part = part.substring(0, 24); }
+            dc.drawText(centerX, lineY, Graphics.FONT_XTINY, part, justify);
+            lineY += lineH;
         }
 
-        // Raison du timing et temps restant avant expiration (C6/C7).
-        var reason = activeCtx.length() > 28 ? activeCtx.substring(0, 28) : activeCtx;
-        var leftMs = TIMING_POPUP_MS - (Time.now().value() * 1000 - popupStart);
-        var leftH = leftMs / 3600000 + 1;
-        if (leftMs <= 0) { leftH = 0; }
-        dc.drawText(centerX, POP_Y + 94, Graphics.FONT_SYSTEM_XTINY,
-                    reason + " · " + leftH.format("%d") + "h", justify);
-
-        // Barre de 7 carres avec la lettre du jour concerne au centre.
-        var side = 30;
-        var gap = 0;
-        var total = 7 * side + 6 * gap;
-        var bx = centerX - total / 2 + side / 2;
-        var by = POP_Y + 118;
-        var letters = weekdayLetters();
-        for (var i = 0; i < 7; i++) {
-            var cx = bx + i * (side + gap);
-            var x = cx - side / 2;
-            var y = by - side / 2;
-            var done = (activeBits & (1 << i)) != 0;
-            if (done) {
-                dc.setColor(activeColor, Graphics.COLOR_TRANSPARENT);
-                dc.fillRectangle(x, y, side, side);
-                dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            } else {
-                dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-                dc.drawRectangle(x, y, side, side);
-            }
-            dc.drawText(cx, by, Graphics.FONT_XTINY, letters[i] as Lang.String, justify);
-        }
+        var reason = activeCtx.length() > 34 ? activeCtx.substring(0, 34) : activeCtx;
+        dc.drawText(centerX, top + boxH - 12, Graphics.FONT_XTINY, reason, justify);
     }
 
     private function faceSelfTestCheck(index as Lang.Number) as Lang.Dictionary {

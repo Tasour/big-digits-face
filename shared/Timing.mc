@@ -27,7 +27,7 @@ const TIMING_STEP_OPTIMAL = 10000;
 const TIMING_STEP_RATE_MAX = 100;
 const TIMING_NSDR_MIN = 10;
 const TIMING_NSDR_MAX = 30;
-const TIMING_POPUP_MS = 3600000;
+const TIMING_POPUP_MS = 30000;
 const TIMING_MAD_SCALE = 1.4826;
 
 function timingMod(v as Lang.Number) as Lang.Number {

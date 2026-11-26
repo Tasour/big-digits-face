@@ -40,7 +40,7 @@ const TIMING_NSDR_MIN = 10;
 (:background)
 const TIMING_NSDR_MAX = 30;
 (:background)
-const TIMING_POPUP_MS = 3600000;
+const TIMING_POPUP_MS = 30000;
 (:background)
 const TIMING_MAD_SCALE = 1.4826;
 

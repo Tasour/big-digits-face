@@ -223,3 +223,16 @@ Les deux drapeaux `FACE_SELF_TEST_BUILD` et `SELF_TEST_BUILD` sont encore à
 `true` : cadran et compagnon lancent donc leur auto-test à l'ouverture, avec
 le bandeau rectangulaire. Ils devront repasser à `false` après transcription
 des écrans `RESULTATS` et redéploiement de la version normale.
+
+## 15. Bandeau 30 s sans carrés (ADR-0016)
+
+- `TIMING_POPUP_MS` passe de 1 h à **30 s** dans le moteur partagé ; le popup
+  du compagnon passe aussi à 30 s.
+- Le rectangle est calculé à 80 % de la largeur et 50 % de la hauteur, centré
+  dans le cercle. Les sept carrés et les lettres LMMJVSD ne sont plus dessinés.
+- N'importe quel bouton masque le bandeau ; START/ENTER seul coche l'habitude.
+  `onTap` garde le même effet sur un device tactile (`notMeasured` sur FR955).
+- Le bandeau est redessiné en mise à jour partielle et un redessin complet est
+  demandé à l'expiration.
+- Capture relue : `docs/screens/bandeau-sans-carres-watch.png` — titre, message
+  sur deux lignes et contexte, sans chevauchement ni carrés.
