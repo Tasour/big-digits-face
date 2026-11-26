@@ -157,3 +157,13 @@ Les trois binaires de production compilent en `-r` sans erreur. **Cause simulato
 - Les métriques de police **sur le device** restent `notMeasured` (montre
   débranchée au moment de la mesure) : la marge est donc dimensionnée pour
   résister à des polices plus grandes, pas calibrée sur une valeur inventée.
+
+## 11. Déploiement paginé du 2026-11-26 (preuve MTP)
+
+- Device USB `091e:4fb8` sur `/dev/bus/usb/003/018`, redéploiement des trois
+  binaires après le correctif de grille, puis démontage/remontage et relecture.
+- Tailles relues conformes à `RELEASES.md` : face 29 836 o, compagnon
+  28 316 o, chrono 10 108 o.
+- `GARMIN/Apps` ne contient toujours aucun autre `.prg` : rien n'a été effacé.
+- `CIQ_LOG.BAK` ne contient que les deux erreurs du 25/11 10:21Z, antérieures
+  au correctif de démarrage. Aucune nouvelle erreur enregistrée.
