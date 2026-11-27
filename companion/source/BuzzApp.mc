@@ -1272,11 +1272,12 @@ class TestPanelDelegate extends Ui.BehaviorDelegate {
 class ValidationMenu extends Ui.Menu2 {
     function initialize() {
         Menu2.initialize({:title => "Validation v26.11.26"});
-        addItem(new Ui.MenuItem("Tout lancer", "8 sondes", "all", null));
+        addItem(new Ui.MenuItem("Tout lancer", "9 sondes", "all", null));
         var ids = FeatureProbes.probeIds();
         var labels = ["Contrat binaire", "Reveil / sommeil", "Lumiere",
                       "Stress / Battery", "NSDR", "Lien telephone",
-                      "Grille / diagnostic", "Stockage / journal"] as Lang.Array;
+                      "Grille / diagnostic", "Stockage / journal",
+                      "Vibration"] as Lang.Array;
         for (var i = 0; i < ids.size(); i++) {
             addItem(new Ui.MenuItem(labels[i] as Lang.String, "", ids[i] as Lang.String, null));
         }

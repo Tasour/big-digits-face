@@ -323,3 +323,13 @@ Device `091e:4fb8` sur `/dev/bus/usb/003/007`. Face 41 804 o, compagnon
 42 540 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
 Aucun drapeau self-test actif : les prochains bandeaux doivent venir des
 créneaux réels évalués chaque seconde.
+
+## 25. Correction du crash du menu Validation (2026-11-27)
+
+- Journal device : `Array Out Of Bounds Error`, `bigdigits-buzz-fr955`,
+  2026-11-27T08:06:26Z, PC `0x10005480` symbolisé en
+  `ValidationMenu.initialize()` ligne 1277-1281.
+- Cause : la 9ᵉ sonde `VIBRATION` a été ajoutée à `probeIds()` sans ajouter son
+  libellé dans le menu ; `labels[8]` sortait du tableau.
+- Correctif : 9 libellés, sous-titre « 9 sondes ». Menu vérifié sans exception
+  dans le simulateur ; 96 tests verts, G0-G4b verts.
