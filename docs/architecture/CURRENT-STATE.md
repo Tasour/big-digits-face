@@ -316,3 +316,10 @@ diagnostic puis le menu Validation par appui long MENU.
   repli sans habitude. Tactile FR955 reste `notMeasured`.
 - Vibration du compagnon portée à 250 ms sur le profil prouvé.
 - Drapeaux self-test restent à `false`.
+
+## 24. Déploiement version utilisable (2026-11-27)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/007`. Face 41 804 o, compagnon
+42 540 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+Aucun drapeau self-test actif : les prochains bandeaux doivent venir des
+créneaux réels évalués chaque seconde.
