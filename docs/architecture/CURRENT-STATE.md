@@ -333,3 +333,9 @@ créneaux réels évalués chaque seconde.
   libellé dans le menu ; `labels[8]` sortait du tableau.
 - Correctif : 9 libellés, sous-titre « 9 sondes ». Menu vérifié sans exception
   dans le simulateur ; 96 tests verts, G0-G4b verts.
+
+## 26. Déploiement correctif menu (2026-11-27)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/009`. Face 41 804 o, compagnon
+42 572 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+Le menu Validation doit maintenant s'ouvrir sans écran de bug.
