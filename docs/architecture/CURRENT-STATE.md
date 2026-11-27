@@ -386,3 +386,11 @@ créneaux.
 - Le compagnon expose deja `Weather.getSunset()` reel dans la sonde Lumiere.
 - Aucune heure fixe inventee : sans position ni meteo, le coucher reste
   `notMeasured`.
+
+## 32. Déploiement diagnostic solaire (2026-11-27)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/018`. Face 43 132 o, compagnon
+44 556 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+Au prochain coucher, le diagnostic `notif.check` distingue « coucher HH:MM »
+de « coucher absent ». La montre doit aussi demander l'autorisation de
+localisation au premier affichage du cadran.
