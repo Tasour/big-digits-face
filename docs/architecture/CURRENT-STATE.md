@@ -369,3 +369,10 @@ et aperçu à la sélection.
   bandeau réel s'affiche. Ce diagnostic est dans le stockage du cadran, pas à
   l'écran.
 - 7 tests des motifs, 103 tests verts.
+
+## 30. Déploiement défaut court-court-long (2026-11-27)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/014`. Face 43 068 o, compagnon
+44 556 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+Le diagnostic `notif.check` est actif sur le cadran pour observer les vrais
+créneaux.
