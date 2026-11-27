@@ -359,3 +359,13 @@ Device `091e:4fb8` sur `/dev/bus/usb/003/011`. Face 42 956 o, compagnon
 44 524 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
 Le menu Validation contient maintenant « Signature vibration » avec 5 motifs
 et aperçu à la sélection.
+
+## 29. Défaut vibration validé et diagnostic des créneaux
+
+- `VIBRATION_DEFAULT = 0` (Court-court-long) initialise `buzz.pattern` à la
+  première installation ; un choix déjà mémorisé est préservé.
+- Le cadran écrit `notif.check` à chaque contrôle de créneau :
+  `now HH:MM aucun` quand rien ne se déclenche, ou `titre | contexte` quand un
+  bandeau réel s'affiche. Ce diagnostic est dans le stockage du cadran, pas à
+  l'écran.
+- 7 tests des motifs, 103 tests verts.

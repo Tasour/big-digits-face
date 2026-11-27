@@ -5,6 +5,7 @@ using Toybox.Lang;
 
 module VibrationPatterns {
     const COUNT = 5;
+    const VIBRATION_DEFAULT = 0;
 
     function names() as Lang.Array {
         return ["Court-court-long", "Battement", "Trois courts",

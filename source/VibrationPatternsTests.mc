@@ -40,3 +40,9 @@ function vibeUnderBudget(logger as Test.Logger) as Lang.Boolean {
 function vibeLongUniqueHasOneStep(logger as Test.Logger) as Lang.Boolean {
     return VibrationPatterns.pattern(3).size() == 1;
 }
+
+(:test)
+function vibeDefaultIsCourtCourtLong(logger as Test.Logger) as Lang.Boolean {
+    return VibrationPatterns.VIBRATION_DEFAULT == 0 &&
+           (VibrationPatterns.names()[0] as Lang.String).equals("Court-court-long");
+}

@@ -500,6 +500,9 @@ class BigDigitsView extends WatchUi.WatchFace {
     private function setPopup(key as Lang.Number, title as Lang.String, msg as Lang.String, ctx as Lang.String, color as Lang.Number) as Void {
         if (key == activeKey) { return; }
         var real = !testMode && key != 9998 && key != 9999;
+        if (real) {
+            Application.Storage.setValue("notif.check", title + " | " + ctx);
+        }
         var seenKey = "face.notif." + key.format("%d");
         if (real && load(seenKey) == dayIndex()) { return; }
         if (real) {
@@ -795,8 +798,11 @@ class BigDigitsView extends WatchUi.WatchFace {
             return;
         }
 
-        // Aucun rappel actif.
+        // Aucun rappel actif : on trace le controle pour diagnostiquer les
+        // creneaux sans ajouter de texte visible sur le cadran.
         activeKey = -1;
+        Application.Storage.setValue("notif.check",
+                                     "now " + timingHHMM(nowMin) + " aucun");
         if (popupTimer != null) { popupTimer.stop(); }
     }
 

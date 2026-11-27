@@ -1757,6 +1757,9 @@ class BuzzApp extends App.AppBase {
 
     (:typecheck(disableBackgroundCheck))
     function getInitialView() {
+        if (App.Storage.getValue("buzz.pattern") == null) {
+            App.Storage.setValue("buzz.pattern", VibrationPatterns.VIBRATION_DEFAULT);
+        }
         if (SELF_TEST_BUILD) {
             return [new SelfTestView(), new SelfTestDelegate()];
         }
