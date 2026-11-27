@@ -172,6 +172,7 @@ class BigDigitsView extends WatchUi.WatchFace {
 
     function onUpdate(dc as Graphics.Dc) as Void {
         refreshSleepScore();
+        refreshPosition();
         resetDailyNotifState();
         var clock = System.getClockTime();
         var settings = System.getDeviceSettings();
@@ -801,8 +802,11 @@ class BigDigitsView extends WatchUi.WatchFace {
         // Aucun rappel actif : on trace le controle pour diagnostiquer les
         // creneaux sans ajouter de texte visible sur le cadran.
         activeKey = -1;
+        var solar = sunsetMinutes(info);
+        var solarText = solar >= 0 ? timingHHMM(solar) : "absent";
         Application.Storage.setValue("notif.check",
-                                     "now " + timingHHMM(nowMin) + " aucun");
+                                     "now " + timingHHMM(nowMin) +
+                                     " coucher " + solarText + " aucun");
         if (popupTimer != null) { popupTimer.stop(); }
     }
 

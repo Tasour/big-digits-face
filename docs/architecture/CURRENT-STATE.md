@@ -376,3 +376,13 @@ Device `091e:4fb8` sur `/dev/bus/usb/003/014`. Face 43 068 o, compagnon
 44 556 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
 Le diagnostic `notif.check` est actif sur le cadran pour observer les vrais
 créneaux.
+
+## 31. Diagnostic solaire du cadran (2026-11-27)
+
+- `refreshPosition()` est appelee a chaque `onUpdate` complet, et plus seulement
+  entre 16 h et 20 h : la position peut ainsi etre demandee des l'ouverture.
+- `notif.check` contient maintenant `now HH:MM coucher HH:MM|absent aucun`,
+  ce qui distingue une fenetre manquee d'une heure solaire indisponible.
+- Le compagnon expose deja `Weather.getSunset()` reel dans la sonde Lumiere.
+- Aucune heure fixe inventee : sans position ni meteo, le coucher reste
+  `notMeasured`.
