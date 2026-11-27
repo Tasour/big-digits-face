@@ -537,6 +537,22 @@ function canVibrate() as Lang.Boolean {
     return true;
 }
 
+(:typecheck(disableBackgroundCheck))
+function playVibration(index as Lang.Number) as Lang.Boolean {
+    if (!canVibrate()) { return false; }
+    var id = index;
+    if (!VibrationPatterns.valid(id)) { id = 0; }
+    var steps = VibrationPatterns.pattern(id);
+    var vibes = [] as Lang.Array;
+    for (var i = 0; i < steps.size(); i++) {
+        var step = steps[i] as Lang.Array;
+        vibes.add(new Attention.VibeProfile(step[0] as Lang.Number,
+                                            step[1] as Lang.Number));
+    }
+    Attention.vibrate(vibes);
+    return true;
+}
+
 function doBuzz(slot as Lang.Number, once as Lang.Boolean) as Lang.Boolean {
     if (!canVibrate()) {
         gLastBuzz = "indisponible " + clockText();
@@ -1269,6 +1285,39 @@ class TestPanelDelegate extends Ui.BehaviorDelegate {
 // Menu de validation : une entree par sonde, lancement global, rapport
 // complet et acces au panneau de test historique.
 (:typecheck(disableBackgroundCheck))
+class PatternMenu extends Ui.Menu2 {
+    function initialize() {
+        Menu2.initialize({:title => "Signature vibration"});
+        var names = VibrationPatterns.names();
+        var active = loadNumber("buzz.pattern");
+        for (var i = 0; i < VibrationPatterns.COUNT; i++) {
+            addItem(new Ui.MenuItem(names[i] as Lang.String,
+                                    i == active ? "actif" : "",
+                                    i.format("%d"), null));
+        }
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
+class PatternMenuDelegate extends Ui.Menu2InputDelegate {
+    function initialize() {
+        Menu2InputDelegate.initialize();
+    }
+
+    function onSelect(item as Ui.MenuItem) as Void {
+        var id = (item.getId() as Lang.String).toNumber();
+        if (!VibrationPatterns.valid(id)) { id = 0; }
+        App.Storage.setValue("buzz.pattern", id);
+        playVibration(id);
+        System.println("VIBRATION pattern " + id.format("%d"));
+    }
+
+    function onBack() as Void {
+        Ui.popView(Ui.SLIDE_IMMEDIATE);
+    }
+}
+
+(:typecheck(disableBackgroundCheck))
 class ValidationMenu extends Ui.Menu2 {
     function initialize() {
         Menu2.initialize({:title => "Validation v26.11.26"});
@@ -1286,7 +1335,8 @@ class ValidationMenu extends Ui.Menu2 {
         addItem(new Ui.MenuItem("Script contract", "DSL CRC + bornes", "script:contract", null));
         addItem(new Ui.MenuItem("Script sleep", "DSL sommeil", "script:sleep", null));
         addItem(new Ui.MenuItem("Script all", "DSL 8 sondes", "script:all", null));
-        addItem(new Ui.MenuItem("Tester vibration", "buzz 120 ms", "vibrate", null));
+        addItem(new Ui.MenuItem("Signature vibration", "5 motifs", "pattern", null));
+        addItem(new Ui.MenuItem("Tester vibration", "motif actif", "vibrate", null));
         addItem(new Ui.MenuItem("Ancien panneau", "non interactif", "test", null));
         addItem(new Ui.MenuItem("Retour", "quitter le menu", "back", null));
     }
@@ -1300,6 +1350,10 @@ class ValidationMenuDelegate extends Ui.Menu2InputDelegate {
 
     function onSelect(item as Ui.MenuItem) as Void {
         var id = item.getId() as Lang.String;
+        if (id.equals("pattern")) {
+            Ui.pushView(new PatternMenu(), new PatternMenuDelegate(), Ui.SLIDE_IMMEDIATE);
+            return;
+        }
         if (id.equals("vibrate")) {
             doBuzz(9998, false);
             var report = runValidationOne(FeatureProbes.PROBE_VIBRATION);

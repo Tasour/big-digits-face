@@ -18,7 +18,7 @@ if ! diff -q "$SHARED" "$TMP" >/dev/null; then
 fi
 
 # Les modules sans annotation sont des copies exactes.
-for module in DiagLayout FeatureProbes ScriptVm ScriptLibrary; do
+for module in DiagLayout FeatureProbes ScriptVm ScriptLibrary VibrationPatterns; do
   if ! diff -q "shared/$module.mc" "companion/source/$module.mc" >/dev/null; then
     echo "KO  divergence $module.mc (face = compagnon)" >&2
     diff -u "shared/$module.mc" "companion/source/$module.mc" | head -40 >&2
@@ -26,5 +26,5 @@ for module in DiagLayout FeatureProbes ScriptVm ScriptLibrary; do
   fi
 done
 
-echo "OK  parite Timing.mc, DiagLayout.mc, FeatureProbes.mc, ScriptVm.mc et ScriptLibrary.mc"
+echo "OK  parite Timing.mc, DiagLayout.mc, FeatureProbes.mc, ScriptVm.mc, ScriptLibrary.mc et VibrationPatterns.mc"
 exit 0

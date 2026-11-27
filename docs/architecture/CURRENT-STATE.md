@@ -339,3 +339,16 @@ créneaux réels évalués chaque seconde.
 Device `091e:4fb8` sur `/dev/bus/usb/003/009`. Face 41 804 o, compagnon
 42 572 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
 Le menu Validation doit maintenant s'ouvrir sans écran de bug.
+
+## 27. Signatures vibration au choix (2026-11-27)
+
+- 5 motifs locaux : Court-court-long, Battement, Trois courts, Long unique,
+  Escalier. Module pur `shared/VibrationPatterns.mc`, copié dans le compagnon.
+- Le compagnon convertit les étapes en `Attention.VibeProfile` ; silences par
+  intensité 0. Durée totale bornée à 1,2 s.
+- `buzz.pattern` persisté dans le stockage du compagnon.
+- Menu Validation → **Signature vibration** : la sélection joue immédiatement
+  le motif comme un choix de sonnerie et marque `actif`.
+- `Tester vibration` rejoue le motif courant. Les vrais rappels utilisent le
+  même motif.
+- 6 tests des motifs, 102 tests verts.
