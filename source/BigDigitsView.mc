@@ -281,12 +281,35 @@ class BigDigitsView extends WatchUi.WatchFace {
             var limit = activeKey == 9999 ? 10000 : POP_MS;
             if (nowMs - popupStart >= limit) {
                 activeKey = -1;
+                testMode = false;
                 dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-                dc.fillRectangle(POP_X, POP_Y, POP_W, POP_H);
+                var sw = dc.getWidth();
+                var sh = dc.getHeight();
+                dc.fillRectangle((sw - (sw * 80) / 100) / 2, popupTop(sh),
+                                 (sw * 80) / 100, popupHeight(sh));
                 WatchUi.requestUpdate();
             } else {
                 drawPopup(dc);
             }
+        }
+        // Evaluation des creneaux chaque seconde : le bandeau doit apparaitre
+        // des que la fenetre est atteinte, sans attendre un onUpdate complet.
+        if (activeKey < 0 && !faceSelfTestMode && settingFlag("face.showPopups") != 0) {
+            var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
+            var dowIdx = (info.day_of_week as Lang.Number) - 1;
+            if (dowIdx < 0) { dowIdx = 0; }
+            if (dowIdx > 6) { dowIdx = 6; }
+            var activity = ActivityMonitor.getInfo();
+            var steps = 0;
+            var goal = 0;
+            var stress = 0;
+            if (activity != null) {
+                if (activity.steps != null) { steps = activity.steps as Lang.Number; }
+                if (activity.stepGoal != null) { goal = activity.stepGoal as Lang.Number; }
+                if (activity.stressScore != null) { stress = activity.stressScore as Lang.Number; }
+            }
+            updatePopup(info.hour, info.min, dowIdx, steps, goal, stress,
+                        System.getDeviceSettings(), info);
         }
     }
 

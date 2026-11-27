@@ -11,7 +11,7 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
     function onPress(clickEvent as WatchUi.ClickEvent) as Lang.Boolean {
         if (gBigDigitsView == null) { return false; }
         if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
-            return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ENTER);
+            return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ESC);
         }
         return (gBigDigitsView as BigDigitsView).onButtonPress();
     }
@@ -34,10 +34,10 @@ class BigDigitsDelegate extends WatchUi.WatchFaceDelegate {
                 return true;
             }
             if ((gBigDigitsView as BigDigitsView).hasActivePopup()) {
-                return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ENTER);
+                // Appui court : on efface sans cocher d'habitude.
+                return (gBigDigitsView as BigDigitsView).dismissWithButton(WatchUi.KEY_ESC);
             }
-            (gBigDigitsView as BigDigitsView).startPreview();
-            return true;
+            return false;
         }
         return false;
     }

@@ -547,7 +547,7 @@ function doBuzz(slot as Lang.Number, once as Lang.Boolean) as Lang.Boolean {
         var key = "buzz.day." + slot.format("%d");
         if (loadNumber(key) == dayIndex()) { return true; }
     }
-    Attention.vibrate([new Attention.VibeProfile(60, 120)]);
+    Attention.vibrate([new Attention.VibeProfile(80, 250)]);
     gLastBuzz = slot.format("%d") + " " + clockText();
     App.Storage.setValue("diag.lastbuzz", gLastBuzz);
     if (once) {

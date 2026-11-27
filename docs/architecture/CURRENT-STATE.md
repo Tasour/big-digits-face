@@ -304,3 +304,15 @@ Device `091e:4fb8`, `/dev/bus/usb/003/005`. Face 41 532 o, compagnon 42 540 o,
 chrono 10 108 o — conformes à `RELEASES.md` après remontage. Les auto-tests ne
 se lancent plus : le cadran affiche l'heure en continu et le compagnon ouvre le
 diagnostic puis le menu Validation par appui long MENU.
+
+## 23. Version utilisable : créneaux chaque seconde et appui court
+
+- `onPartialUpdate()` évalue maintenant les créneaux chaque seconde : le
+  bandeau apparaît dès que la fenêtre est atteinte, sans attendre un
+  `onUpdate` complet. Seuils et fenêtres du livre inchangés.
+- Effacement du bandeau à l'expiration étendu à la nouvelle géométrie
+  mesurée, pour ne pas laisser de résidus.
+- Appui court (`onTap`) efface le bandeau sans habitude ; `onPress` sert de
+  repli sans habitude. Tactile FR955 reste `notMeasured`.
+- Vibration du compagnon portée à 250 ms sur le profil prouvé.
+- Drapeaux self-test restent à `false`.
