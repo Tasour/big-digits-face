@@ -352,3 +352,10 @@ Le menu Validation doit maintenant s'ouvrir sans écran de bug.
 - `Tester vibration` rejoue le motif courant. Les vrais rappels utilisent le
   même motif.
 - 6 tests des motifs, 102 tests verts.
+
+## 28. Déploiement signatures vibration (2026-11-27)
+
+Device `091e:4fb8` sur `/dev/bus/usb/003/011`. Face 42 956 o, compagnon
+44 524 o, chrono 10 108 o — conformes à `RELEASES.md` après remontage.
+Le menu Validation contient maintenant « Signature vibration » avec 5 motifs
+et aperçu à la sélection.
